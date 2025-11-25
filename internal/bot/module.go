@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handlers"
 	"github.com/go-core-fx/logger"
 	"github.com/go-telegram/bot"
 	"go.uber.org/fx"
@@ -13,6 +14,6 @@ func Module() fx.Option {
 		fx.Provide(func() []bot.Option {
 			return []bot.Option{}
 		}),
-		// fx.Provide(New),
+		handlers.Module(),
 	)
 }
