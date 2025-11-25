@@ -252,6 +252,7 @@ linters:
         - ^os/exec.Cmd$
         - ^reflect.StructField$
         # public libs
+        - "^github.com/go-telegram/bot.+Params$"
         - "^github.com/gofiber/.+Config$"
         - "^gopkg.in/telebot.v4.LongPoller$"
         - "^gopkg.in/telebot.v4.ReplyMarkup$"

@@ -7,6 +7,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/config"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/db"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/server"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-core-fx/bunfx"
 	"github.com/go-core-fx/fiberfx"
@@ -31,6 +32,9 @@ func Run() {
 		db.Module(),
 		server.Module(),
 		bot.Module(),
+		//
+		users.Module(),
+		//
 		fx.Invoke(func(lc fx.Lifecycle, logger *zap.Logger) {
 			lc.Append(fx.Hook{
 				OnStart: func(_ context.Context) error {
