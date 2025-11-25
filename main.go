@@ -1,7 +1,7 @@
 package main
 
-import "fmt"
+import "github.com/capcom6/lucky-pick-tg-bot/internal"
 
 func main() {
-	fmt.Println("Hello World")
+	internal.Run()
 }

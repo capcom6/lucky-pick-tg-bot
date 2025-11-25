@@ -1,0 +1,45 @@
+package config
+
+import (
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
+	"github.com/go-core-fx/fiberfx"
+	"github.com/go-core-fx/sqlfx"
+	"go.uber.org/fx"
+)
+
+func Module() fx.Option {
+	return fx.Module(
+		"config",
+		fx.Provide(
+			New,
+			fx.Private,
+		),
+		fx.Provide(
+			func(cfg Config) fiberfx.Config {
+				return fiberfx.Config{
+					Address:     cfg.HTTP.Address,
+					ProxyHeader: cfg.HTTP.ProxyHeader,
+					Proxies:     cfg.HTTP.Proxies,
+				}
+			},
+		),
+		fx.Provide(
+			func(cfg Config) sqlfx.Config {
+				return sqlfx.Config{
+					URL:             cfg.Database.URL,
+					ConnMaxIdleTime: cfg.Database.ConnMaxIdleTime,
+					ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
+					MaxOpenConns:    cfg.Database.MaxOpenConns,
+					MaxIdleConns:    cfg.Database.MaxIdleConns,
+				}
+			},
+		),
+		fx.Provide(
+			func(cfg Config) gotelegrambotfx.Config {
+				return gotelegrambotfx.Config{
+					Token: cfg.Telegram.Token,
+				}
+			},
+		),
+	)
+}
