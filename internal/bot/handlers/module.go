@@ -11,6 +11,7 @@ func Module() fx.Option {
 		"handlers",
 		logger.WithNamedLogger("handlers"),
 		fx.Provide(fx.Annotate(NewStart, fx.ResultTags(`group:"handlers"`))),
+		fx.Provide(fx.Annotate(NewGroups, fx.ResultTags(`group:"handlers"`))),
 		fx.Invoke(fx.Annotate(
 			func(b *bot.Bot, handlers []Handler) {
 				for _, handler := range handlers {
