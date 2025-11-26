@@ -6,7 +6,9 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/config"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/db"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/scheduler"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/server"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
@@ -33,8 +35,10 @@ func Run() {
 		db.Module(),
 		server.Module(),
 		bot.Module(),
+		scheduler.Module(),
 		//
 		users.Module(),
+		giveaways.Module(),
 		groups.Module(),
 		//
 		fx.Invoke(func(lc fx.Lifecycle, logger *zap.Logger) {

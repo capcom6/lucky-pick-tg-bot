@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-core-fx/config"
+	"go.uber.org/zap"
 )
 
 type httpConfig struct {
@@ -31,7 +32,7 @@ type Config struct {
 	Database databaseConfig `koanf:"database"`
 }
 
-func New() (Config, error) {
+func New(logger *zap.Logger) (Config, error) {
 	//nolint:mnd // default values
 	cfg := Config{
 		HTTP: httpConfig{
@@ -52,8 +53,11 @@ func New() (Config, error) {
 	}
 
 	if err := config.Load(&cfg); err != nil {
+		logger.Error("failed to load config", zap.Error(err))
 		return cfg, fmt.Errorf("load config: %w", err)
 	}
+
+	logger.Debug("config loaded successfully")
 
 	return cfg, nil
 }

@@ -37,18 +37,15 @@ func (s *Start) Register(b *bot.Bot) {
 
 func (s *Start) handleStart(ctx context.Context, b *bot.Bot, update *models.Update) {
 	if update.Message == nil || update.Message.From == nil {
-		s.logger.Error("Invalid update: missing message or sender")
+		s.withContext(update).Error("invalid update: missing message or sender")
 		return
 	}
 
+	logger := s.withContext(update)
+
 	user, err := s.usersSvc.RegisterUser(
 		ctx,
-		users.UserIn{
-			TelegramUserID: update.Message.From.ID,
-			Username:       update.Message.From.Username,
-			FirstName:      update.Message.From.FirstName,
-			LastName:       update.Message.From.LastName,
-		},
+		UserToDomain(update.Message.From),
 	)
 	if err != nil {
 		s.handleError(ctx, update, err)
@@ -70,6 +67,6 @@ func (s *Start) handleStart(ctx context.Context, b *bot.Bot, update *models.Upda
 			Text:   "Привет, " + displayName + "!\n\nДобро пожаловать в Lucky Pick Bot!\n\nТеперь ты сможешь получать уведомления о выигрыше здесь.",
 		},
 	); replyErr != nil {
-		s.logger.Error("Failed to send reply message", zap.Error(replyErr))
+		logger.Error("failed to send reply message", zap.Error(replyErr))
 	}
 }

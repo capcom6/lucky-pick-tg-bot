@@ -10,7 +10,7 @@ import (
 type UserModel struct {
 	bun.BaseModel `bun:"table:users,alias:u"`
 
-	ID             int64     `bun:"id,pk,scanonly"`
+	ID             int64     `bun:"id,pk,autoincrement"`
 	TelegramUserID int64     `bun:"telegram_user_id"`
 	Username       string    `bun:"username,nullzero"`
 	FirstName      string    `bun:"first_name"`
