@@ -32,9 +32,14 @@ CREATE TABLE giveaways (
     application_end_date DATETIME NOT NULL,
     results_date DATETIME NOT NULL,
     is_anonymous BOOLEAN DEFAULT FALSE,
-    status ENUM('scheduled', 'active', 'finished', 'cancelled') DEFAULT 'scheduled',
+    status ENUM(
+        'scheduled',
+        'active',
+        'closed',
+        'finished',
+        'cancelled'
+    ) DEFAULT 'scheduled',
     telegram_message_id BIGINT NULL,
-    is_pinned BOOLEAN DEFAULT FALSE,
     winner_user_id BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

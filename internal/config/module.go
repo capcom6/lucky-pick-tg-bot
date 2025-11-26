@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-core-fx/fiberfx"
+	"github.com/go-core-fx/logger"
 	"github.com/go-core-fx/sqlfx"
 	"go.uber.org/fx"
 )
@@ -10,6 +11,7 @@ import (
 func Module() fx.Option {
 	return fx.Module(
 		"config",
+		logger.WithNamedLogger("config"),
 		fx.Provide(
 			New,
 			fx.Private,
