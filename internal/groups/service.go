@@ -24,13 +24,8 @@ func NewService(groups *Repository, actionsSvc *actions.Service) *Service {
 }
 
 // CreateOrUpdate creates a new group record or updates an existing one.
-func (s *Service) CreateOrUpdate(ctx context.Context, telegramID int64, title string) error {
-	group := &Group{
-		TelegramID: telegramID,
-		Title:      title,
-	}
-
-	if err := s.groups.CreateOrUpdate(ctx, group); err != nil {
+func (s *Service) CreateOrUpdate(ctx context.Context, group Group, admin Admin) error {
+	if err := s.groups.CreateOrUpdate(ctx, &group, []Admin{admin}); err != nil {
 		return fmt.Errorf("failed to create or update group: %w", err)
 	}
 

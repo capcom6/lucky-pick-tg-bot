@@ -5,3 +5,7 @@ type Group struct {
 	TelegramID int64
 	Title      string
 }
+
+type Admin struct {
+	UserID int64
+}

@@ -12,7 +12,13 @@ func Module() fx.Option {
 		"bot",
 		logger.WithNamedLogger("bot"),
 		fx.Provide(func() []bot.Option {
-			return []bot.Option{}
+			return []bot.Option{
+				bot.WithAllowedUpdates(bot.AllowedUpdates{
+					"message",
+					"callback_query",
+					"my_chat_member",
+				}),
+			}
 		}),
 		handlers.Module(),
 	)

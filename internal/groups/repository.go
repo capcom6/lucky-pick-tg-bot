@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/uptrace/bun"
 )
 
@@ -18,14 +19,44 @@ func NewRepository(db *bun.DB) *Repository {
 }
 
 // CreateOrUpdate implements Repository.
-func (r *Repository) CreateOrUpdate(ctx context.Context, group *Group) error {
-	model := NewGroupModel(group.TelegramID, group.Title)
+func (r *Repository) CreateOrUpdate(ctx context.Context, group *Group, admins []Admin) error {
+	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		model := newGroupModel(group.TelegramID, group.Title)
 
-	_, err := r.db.NewInsert().
-		Model(model).
-		On("DUPLICATE KEY UPDATE").
-		Returning("*").
-		Exec(ctx)
+		if _, err := tx.NewInsert().
+			Model(model).
+			On("DUPLICATE KEY UPDATE").
+			Returning("*").
+			Exec(ctx); err != nil {
+			return fmt.Errorf("failed to create or update group: %w", err)
+		}
+
+		if _, err := tx.NewDelete().
+			Model((*adminModel)(nil)).
+			Where("group_id = ?", model.ID).
+			Exec(ctx); err != nil {
+			return fmt.Errorf("failed to delete group admins: %w", err)
+		}
+
+		if len(admins) == 0 {
+			return nil
+		}
+
+		adminModels := lo.Map(
+			admins,
+			func(admin Admin, _ int) *adminModel {
+				return newAdminModel(model.ID, admin.UserID)
+			},
+		)
+
+		if _, err := tx.NewInsert().
+			Model(&adminModels).
+			Exec(ctx); err != nil {
+			return fmt.Errorf("failed to create or update group admins: %w", err)
+		}
+
+		return nil
+	})
 
 	if err != nil {
 		return fmt.Errorf("failed to create or update group: %w", err)
