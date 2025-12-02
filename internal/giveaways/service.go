@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
 	"github.com/go-telegram/bot"
 	"go.uber.org/zap"
 )
@@ -15,16 +16,18 @@ import (
 type Service struct {
 	giveaways *Repository
 
-	bot *bot.Bot
+	bot        *bot.Bot
+	actionsSvc *actions.Service
 
 	logger *zap.Logger
 }
 
-func NewService(giveaways *Repository, bot *bot.Bot, logger *zap.Logger) *Service {
+func NewService(giveaways *Repository, bot *bot.Bot, logger *zap.Logger, actionsSvc *actions.Service) *Service {
 	return &Service{
 		giveaways: giveaways,
 
-		bot: bot,
+		bot:        bot,
+		actionsSvc: actionsSvc,
 
 		logger: logger,
 	}
@@ -68,10 +71,15 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 		}
 
 		var newStatus *GiveawayModel
+		var actionType, actionDesc string
 		if winErr != nil {
-			newStatus = NewCancelledGiveaway(giveaway.ID)
+			newStatus = NewCancelGiveaway(giveaway.ID)
+			actionType = "giveaway.cancelled"
+			actionDesc = fmt.Sprintf("Cancel giveaway: %s", winErr.Error())
 		} else {
-			newStatus = NewFinishedGiveaway(giveaway.ID, winner.UserID)
+			newStatus = NewFinishGiveaway(giveaway.ID, winner.UserID)
+			actionType = "giveaway.finished"
+			actionDesc = "Finish giveaway"
 		}
 
 		if updErr := s.giveaways.Update(
@@ -81,7 +89,16 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 			logger.Error("failed to update giveaway",
 				zap.Error(updErr),
 			)
+			continue
 		}
+
+		s.actionsSvc.LogAction(
+			ctx,
+			actionType,
+			newStatus.WinnerUserID,
+			giveaway.ID,
+			actionDesc,
+		)
 
 		winners = append(winners, Winner{
 			Giveaway:    newGiveaway(giveaway),
@@ -93,22 +110,42 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 }
 
 func (s *Service) Published(ctx context.Context, id, messageID int64) error {
-	return s.giveaways.Update(
+	if err := s.giveaways.Update(
 		ctx,
 		NewPublishGiveaway(
 			id,
 			messageID,
 		),
+	); err != nil {
+		return err
+	}
+
+	// Log the action
+	s.actionsSvc.LogAction(
+		ctx,
+		"giveaway.published",
+		0,
+		id,
+		fmt.Sprintf("Publish giveaway with message ID %d", messageID),
 	)
+
+	return nil
 }
 
-func (s *Service) Pending(ctx context.Context, id int64) error {
-	return s.giveaways.Update(
+func (s *Service) Close(ctx context.Context, id int64) error {
+	if err := s.giveaways.Update(
 		ctx,
-		NewClosedGiveaway(
+		NewCloseGiveaway(
 			id,
 		),
-	)
+	); err != nil {
+		return err
+	}
+
+	// Log the action
+	s.actionsSvc.LogAction(ctx, "giveaway.closed", 0, id, "Close giveaway")
+
+	return nil
 }
 
 func (s *Service) Participate(ctx context.Context, giveawayID int64, userID int64) error {
@@ -127,7 +164,14 @@ func (s *Service) Participate(ctx context.Context, giveawayID int64, userID int6
 		return ErrNotFound
 	}
 
-	return s.giveaways.AddParticipant(ctx, NewParticipantModel(giveawayID, userID))
+	if addErr := s.giveaways.AddParticipant(ctx, NewParticipantModel(giveawayID, userID)); addErr != nil {
+		return addErr
+	}
+
+	// Log the action
+	s.actionsSvc.LogAction(ctx, "giveaway.participated", userID, giveawayID, "Participate in giveaway")
+
+	return nil
 }
 
 func (s *Service) randomWinner(_ context.Context, giveaway *GiveawayModel) (*ParticipantModel, error) {

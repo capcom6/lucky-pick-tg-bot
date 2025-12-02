@@ -4,17 +4,24 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
 	"go.uber.org/zap"
 )
 
 type Service struct {
-	users  *Repository
+	users *Repository
+
+	actionsSvc *actions.Service
+
 	logger *zap.Logger
 }
 
-func NewService(users *Repository, logger *zap.Logger) *Service {
+func NewService(users *Repository, logger *zap.Logger, actionsSvc *actions.Service) *Service {
 	return &Service{
-		users:  users,
+		users: users,
+
+		actionsSvc: actionsSvc,
+
 		logger: logger,
 	}
 }
@@ -48,6 +55,9 @@ func (s *Service) RegisterUser(ctx context.Context, user UserIn) (*User, error) 
 		zap.String("username", model.Username),
 		zap.String("first_name", model.FirstName),
 	)
+
+	// Log action after successful DB operation
+	s.actionsSvc.LogAction(ctx, "user.registered", model.ID, 0, fmt.Sprintf("Registered user @%s", model.Username))
 
 	return &User{
 		UserIn: UserIn{

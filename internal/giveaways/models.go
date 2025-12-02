@@ -53,7 +53,7 @@ func NewPublishGiveaway(id, messageID int64) *GiveawayModel {
 	}
 }
 
-func NewClosedGiveaway(id int64) *GiveawayModel {
+func NewCloseGiveaway(id int64) *GiveawayModel {
 	//nolint:exhaustruct // partial constructor
 	return &GiveawayModel{
 		ID:     id,
@@ -61,7 +61,7 @@ func NewClosedGiveaway(id int64) *GiveawayModel {
 	}
 }
 
-func NewFinishedGiveaway(id, winnerID int64) *GiveawayModel {
+func NewFinishGiveaway(id, winnerID int64) *GiveawayModel {
 	//nolint:exhaustruct // partial constructor
 	return &GiveawayModel{
 		ID:           id,
@@ -70,7 +70,7 @@ func NewFinishedGiveaway(id, winnerID int64) *GiveawayModel {
 	}
 }
 
-func NewCancelledGiveaway(id int64) *GiveawayModel {
+func NewCancelGiveaway(id int64) *GiveawayModel {
 	//nolint:exhaustruct // partial constructor
 	return &GiveawayModel{
 		ID:     id,

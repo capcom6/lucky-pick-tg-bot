@@ -61,8 +61,8 @@ func (c *Close) close(ctx context.Context, giveaway *giveaways.Giveaway) error {
 		)
 	}
 
-	if err := c.giveawaysSvc.Pending(ctx, giveaway.ID); err != nil {
-		return fmt.Errorf("failed to update giveaway: %w", err)
+	if err := c.giveawaysSvc.Close(ctx, giveaway.ID); err != nil {
+		return fmt.Errorf("failed to close giveaway: %w", err)
 	}
 
 	return nil
