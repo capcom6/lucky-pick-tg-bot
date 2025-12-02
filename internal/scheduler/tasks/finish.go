@@ -53,7 +53,7 @@ func (f *Finish) Run(ctx context.Context) error {
 func (f *Finish) notify(ctx context.Context, winner giveaways.Winner) error {
 	params := &bot.SendMessageParams{
 		ChatID: winner.Giveaway.TelegramGroupID,
-		Text:   f.formatText(winner),
+		Text:   bot.EscapeMarkdown(f.formatText(winner)),
 		ReplyParameters: &models.ReplyParameters{
 			MessageID:                int(winner.Giveaway.TelegramMessageID),
 			ChatID:                   winner.Giveaway.TelegramGroupID,
@@ -74,7 +74,7 @@ func (f *Finish) formatText(winner giveaways.Winner) string {
 		return "🏆 Победитель: не выбран\n\nК сожалению, участников оказалось недостаточно."
 	}
 
-	username := bot.EscapeMarkdown(winner.Participant.UserFirstName)
+	username := winner.Participant.UserFirstName
 	if winner.Participant.UserUsername != "" {
 		username = fmt.Sprintf("@%s", winner.Participant.UserUsername)
 	}
