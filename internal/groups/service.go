@@ -3,26 +3,45 @@ package groups
 import (
 	"context"
 	"fmt"
+
+	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
 )
 
 // Service provides group management operations.
 type Service struct {
 	groups *Repository
+
+	actionsSvc *actions.Service
 }
 
 // NewService creates a new instance of the service.
-func NewService(groups *Repository) *Service {
-	return &Service{groups: groups}
+func NewService(groups *Repository, actionsSvc *actions.Service) *Service {
+	return &Service{
+		groups: groups,
+
+		actionsSvc: actionsSvc,
+	}
 }
 
 // CreateOrUpdate creates a new group record or updates an existing one.
 func (s *Service) CreateOrUpdate(ctx context.Context, telegramID int64, title string) error {
-	if err := s.groups.CreateOrUpdate(ctx, &Group{
+	group := &Group{
 		TelegramID: telegramID,
 		Title:      title,
-	}); err != nil {
+	}
+
+	if err := s.groups.CreateOrUpdate(ctx, group); err != nil {
 		return fmt.Errorf("failed to create or update group: %w", err)
 	}
+
+	// Log the action
+	s.actionsSvc.LogAction(
+		ctx,
+		"group.enabled",
+		0,
+		0,
+		fmt.Sprintf("Enable group %q with telegram ID %d", group.Title, group.TelegramID),
+	)
 
 	return nil
 }
@@ -32,6 +51,9 @@ func (s *Service) Disable(ctx context.Context, telegramID int64) error {
 	if err := s.groups.UpdateStatus(ctx, telegramID, false); err != nil {
 		return fmt.Errorf("failed to disable group: %w", err)
 	}
+
+	// Log the action
+	s.actionsSvc.LogAction(ctx, "group.disabled", 0, 0, fmt.Sprintf("Disable group with telegram ID %d", telegramID))
 
 	return nil
 }

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/config"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/db"
@@ -40,6 +41,7 @@ func Run() {
 		users.Module(),
 		giveaways.Module(),
 		groups.Module(),
+		actions.Module(),
 		//
 		fx.Invoke(func(lc fx.Lifecycle, logger *zap.Logger) {
 			lc.Append(fx.Hook{
