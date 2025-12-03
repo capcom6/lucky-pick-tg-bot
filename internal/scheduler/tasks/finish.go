@@ -53,7 +53,7 @@ func (f *Finish) Run(ctx context.Context) error {
 func (f *Finish) notify(ctx context.Context, winner giveaways.Winner) error {
 	params := &bot.SendMessageParams{
 		ChatID: winner.Giveaway.TelegramGroupID,
-		Text:   bot.EscapeMarkdown(f.formatText(winner)),
+		Text:   f.formatText(winner),
 		ReplyParameters: &models.ReplyParameters{
 			MessageID:                int(winner.Giveaway.TelegramMessageID),
 			ChatID:                   winner.Giveaway.TelegramGroupID,
@@ -71,16 +71,29 @@ func (f *Finish) notify(ctx context.Context, winner giveaways.Winner) error {
 
 func (f *Finish) formatText(winner giveaways.Winner) string {
 	if winner.Participant == nil {
-		return "🏆 Победитель: не выбран\n\nК сожалению, участников оказалось недостаточно."
+		return bot.EscapeMarkdown("🏆 Победитель: не выбран\n\nК сожалению, участников оказалось недостаточно.")
 	}
 
-	username := winner.Participant.UserFirstName
-	if winner.Participant.UserUsername != "" {
-		username = fmt.Sprintf("@%s", winner.Participant.UserUsername)
+	var username string
+	switch {
+	case winner.Participant.UserUsername != "":
+		username = "@" + bot.EscapeMarkdown(winner.Participant.UserUsername)
+	case winner.Participant.UserFirstName != "":
+		username = fmt.Sprintf(
+			"[%s](tg://user?id=%d)",
+			bot.EscapeMarkdown(winner.Participant.UserFirstName),
+			winner.Participant.UserTelegramID,
+		)
+	default:
+		username = fmt.Sprintf(
+			"[%d](tg://user?id=%d)",
+			winner.Participant.UserTelegramID,
+			winner.Participant.UserTelegramID,
+		)
 	}
 
 	return fmt.Sprintf(
-		"🏆 Победитель: %s\n\n🎉Поздравляем!\nСвяжитесь с администратором для получения приза.",
+		bot.EscapeMarkdown("🏆 Победитель: %s\n\n🎉Поздравляем!\nСвяжитесь с администратором для получения приза."),
 		username,
 	)
 }
