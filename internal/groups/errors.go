@@ -1,1 +1,7 @@
 package groups
+
+import "errors"
+
+var (
+	ErrNotFound = errors.New("group not found")
+)

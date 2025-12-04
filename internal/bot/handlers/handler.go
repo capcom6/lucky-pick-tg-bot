@@ -18,6 +18,16 @@ type BaseHandler struct {
 	logger *zap.Logger
 }
 
+func (h *BaseHandler) sendMessage(ctx context.Context, chatID int64, text string) {
+	_, err := h.bot.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chatID,
+		Text:   text,
+	})
+	if err != nil {
+		h.logger.Error("failed to send message", zap.Error(err))
+	}
+}
+
 func (h *BaseHandler) withContext(update *models.Update) *zap.Logger {
 	logger := h.logger
 

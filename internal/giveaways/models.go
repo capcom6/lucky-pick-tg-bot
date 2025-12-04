@@ -44,6 +44,27 @@ type GiveawayModel struct {
 	Participants []*ParticipantModel `bun:"gap,rel:has-many,join:id=giveaway_id"`
 }
 
+func NewGiveawayModel(
+	groupID, adminUserID int64,
+	photoFileID, description string,
+	publishDate, applicationEndDate, resultsDate time.Time,
+	isAnonymous bool,
+) *GiveawayModel {
+	//nolint:exhaustruct // partial constructor
+	return &GiveawayModel{
+		GroupID:     groupID,
+		AdminUserID: adminUserID,
+
+		PhotoFileID:        photoFileID,
+		Description:        description,
+		PublishDate:        publishDate,
+		ApplicationEndDate: applicationEndDate,
+		ResultsDate:        resultsDate,
+
+		IsAnonymous: isAnonymous,
+	}
+}
+
 func NewPublishGiveaway(id, messageID int64) *GiveawayModel {
 	//nolint:exhaustruct // partial constructor
 	return &GiveawayModel{

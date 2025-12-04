@@ -13,6 +13,7 @@ func Module() fx.Option {
 		fx.Provide(fx.Annotate(NewStart, fx.ResultTags(`group:"handlers"`))),
 		fx.Provide(fx.Annotate(NewParticipant, fx.ResultTags(`group:"handlers"`))),
 		fx.Provide(fx.Annotate(NewGroups, fx.ResultTags(`group:"handlers"`))),
+		fx.Provide(fx.Annotate(NewGiveawayScheduler, fx.ResultTags(`group:"handlers"`))),
 		fx.Invoke(fx.Annotate(
 			func(handlers []Handler, b *bot.Bot) {
 				for _, handler := range handlers {
