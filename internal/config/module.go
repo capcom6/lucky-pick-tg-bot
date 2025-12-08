@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
+	"github.com/go-core-fx/cachefx"
 	"github.com/go-core-fx/fiberfx"
 	"github.com/go-core-fx/logger"
 	"github.com/go-core-fx/sqlfx"
@@ -40,6 +41,13 @@ func Module() fx.Option {
 			func(cfg Config) gotelegrambotfx.Config {
 				return gotelegrambotfx.Config{
 					Token: cfg.Telegram.Token,
+				}
+			},
+		),
+		fx.Provide(
+			func(cfg Config) cachefx.Config {
+				return cachefx.Config{
+					URL: cfg.Cache.URL,
 				}
 			},
 		),

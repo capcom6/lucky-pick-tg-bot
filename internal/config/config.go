@@ -26,10 +26,15 @@ type databaseConfig struct {
 	MaxIdleConns    int           `koanf:"max_idle_conns"`
 }
 
+type cacheConfig struct {
+	URL string `koanf:"url"`
+}
+
 type Config struct {
 	HTTP     httpConfig     `koanf:"http"`
 	Telegram telegramConfig `koanf:"telegram"`
 	Database databaseConfig `koanf:"database"`
+	Cache    cacheConfig    `koanf:"cache"`
 }
 
 func New(logger *zap.Logger) (Config, error) {
@@ -49,6 +54,9 @@ func New(logger *zap.Logger) (Config, error) {
 			ConnMaxLifetime: 1 * time.Hour,
 			MaxOpenConns:    25,
 			MaxIdleConns:    5,
+		},
+		Cache: cacheConfig{
+			URL: "memory://",
 		},
 	}
 
