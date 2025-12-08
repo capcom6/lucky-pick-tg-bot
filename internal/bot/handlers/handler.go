@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/extractors"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -16,6 +17,32 @@ type BaseHandler struct {
 	bot *bot.Bot
 
 	logger *zap.Logger
+}
+
+func (h *BaseHandler) sendMessage(ctx context.Context, params *bot.SendMessageParams) {
+	if params.ChatID == 0 {
+		h.logger.Error("failed to send message: missing chat ID", zap.Any("params", params))
+		return
+	}
+
+	if _, err := h.bot.SendMessage(ctx, params); err != nil {
+		h.logger.Error(
+			"failed to send message",
+			zap.Any("params", params),
+			zap.Error(err),
+		)
+	}
+}
+
+func (h *BaseHandler) sendReply(ctx context.Context, update *models.Update, params *bot.SendMessageParams) {
+	fromID := extractors.From(update)
+
+	params.ChatID = fromID
+	if params.ReplyParameters != nil && update.Message != nil {
+		params.ReplyParameters.MessageID = update.Message.ID
+	}
+
+	h.sendMessage(ctx, params)
 }
 
 func (h *BaseHandler) withContext(update *models.Update) *zap.Logger {
@@ -69,15 +96,10 @@ func (h *BaseHandler) withContext(update *models.Update) *zap.Logger {
 }
 
 func (h *BaseHandler) handleError(ctx context.Context, update *models.Update, err error) {
-	_, sendErr := h.bot.SendMessage(
+	h.withContext(update).Error("handling error", zap.Error(err))
+	h.sendReply(
 		ctx,
-		&bot.SendMessageParams{
-			ChatID: update.Message.Chat.ID,
-			Text:   "К сожалению, возникла ошибка. Обратитесь к администратору.",
-		},
+		update,
+		&bot.SendMessageParams{Text: "К сожалению, возникла ошибка. Обратитесь к администратору."},
 	)
-
-	if sendErr != nil {
-		h.withContext(update).Error("failed to send error message", zap.Error(sendErr), zap.NamedError("source", err))
-	}
 }
