@@ -18,6 +18,8 @@ type GroupModel struct {
 
 	CreatedAt time.Time `bun:"created_at,scanonly"`
 	UpdatedAt time.Time `bun:"updated_at,scanonly"`
+
+	Admins []*adminModel `bun:"ga,rel:has-many,join:id=group_id"`
 }
 
 func newGroupModel(telegramID int64, title string) *GroupModel {
