@@ -7,6 +7,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/config"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/db"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/scheduler"
@@ -14,6 +15,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-core-fx/bunfx"
+	"github.com/go-core-fx/cachefx"
 	"github.com/go-core-fx/fiberfx"
 	"github.com/go-core-fx/goosefx"
 	"github.com/go-core-fx/logger"
@@ -31,12 +33,14 @@ func Run() {
 		goosefx.Module(),
 		bunfx.Module(),
 		fiberfx.Module(),
+		cachefx.Module(),
 		gotelegrambotfx.Module(),
 		//
 		db.Module(),
 		server.Module(),
 		bot.Module(),
 		scheduler.Module(),
+		fsm.Module(),
 		//
 		users.Module(),
 		giveaways.Module(),
