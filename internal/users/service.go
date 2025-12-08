@@ -40,7 +40,8 @@ func (s *Service) RegisterUser(ctx context.Context, user UserIn) (*User, error) 
 	)
 
 	// Create or update user in database
-	if err := s.users.CreateOrUpdate(ctx, model); err != nil {
+	created, err := s.users.CreateOrUpdate(ctx, model)
+	if err != nil {
 		logger.Error("failed to create or update user",
 			zap.Error(err),
 		)
@@ -51,13 +52,15 @@ func (s *Service) RegisterUser(ctx context.Context, user UserIn) (*User, error) 
 		zap.Int64("user_id", model.ID),
 	)
 
-	logger.Info("user registered successfully",
-		zap.String("username", model.Username),
-		zap.String("first_name", model.FirstName),
-	)
+	if created {
+		logger.Info("user registered successfully",
+			zap.String("username", model.Username),
+			zap.String("first_name", model.FirstName),
+		)
 
-	// Log action after successful DB operation
-	s.actionsSvc.LogAction(ctx, "user.registered", model.ID, 0, fmt.Sprintf("Registered user @%s", model.Username))
+		// Log action after successful DB operation
+		s.actionsSvc.LogAction(ctx, "user.registered", model.ID, 0, fmt.Sprintf("Registered user @%s", model.Username))
+	}
 
 	return &User{
 		UserIn: UserIn{
