@@ -35,13 +35,34 @@ type GiveawayModel struct {
 	TelegramMessageID int64 `bun:"telegram_message_id,nullzero"`
 
 	WinnerUserID int64  `bun:"winner_user_id,nullzero"`
-	Status       Status `bun:"status,notnull"`
+	Status       Status `bun:"status,notnull,default:'scheduled'"`
 
 	CreatedAt time.Time `bun:"created_at,scanonly"`
 	UpdatedAt time.Time `bun:"updated_at,scanonly"`
 
 	Group        *groups.GroupModel  `bun:"g,rel:belongs-to,join:group_id=id"`
 	Participants []*ParticipantModel `bun:"gap,rel:has-many,join:id=giveaway_id"`
+}
+
+func NewGiveawayModel(
+	groupID, adminUserID int64,
+	photoFileID, description string,
+	publishDate, applicationEndDate, resultsDate time.Time,
+	isAnonymous bool,
+) *GiveawayModel {
+	//nolint:exhaustruct // partial constructor
+	return &GiveawayModel{
+		GroupID:     groupID,
+		AdminUserID: adminUserID,
+
+		PhotoFileID:        photoFileID,
+		Description:        description,
+		PublishDate:        publishDate,
+		ApplicationEndDate: applicationEndDate,
+		ResultsDate:        resultsDate,
+
+		IsAnonymous: isAnonymous,
+	}
 }
 
 func NewPublishGiveaway(id, messageID int64) *GiveawayModel {
