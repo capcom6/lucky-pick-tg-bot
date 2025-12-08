@@ -6,19 +6,24 @@ import (
 	"github.com/samber/lo"
 )
 
-type Giveaway struct {
-	ID int64
+type GiveawayDraft struct {
+	GroupID     int64
+	AdminUserID int64
 
-	GroupID         int64
-	TelegramGroupID int64
-
-	AdminUserID        int64
 	PhotoFileID        string
 	Description        string
 	PublishDate        time.Time
 	ApplicationEndDate time.Time
 	ResultsDate        time.Time
 	IsAnonymous        bool
+}
+
+type Giveaway struct {
+	GiveawayDraft
+
+	ID int64
+
+	TelegramGroupID int64
 
 	TelegramMessageID int64
 
@@ -45,21 +50,22 @@ type Winner struct {
 	Participant *Participant
 }
 
-func newGiveaway(item GiveawayModel) Giveaway {
-	return Giveaway{
+func newGiveaway(item GiveawayModel) *Giveaway {
+	return &Giveaway{
+		GiveawayDraft: GiveawayDraft{
+			GroupID:            item.GroupID,
+			AdminUserID:        item.AdminUserID,
+			PhotoFileID:        item.PhotoFileID,
+			Description:        item.Description,
+			PublishDate:        item.PublishDate,
+			ApplicationEndDate: item.ApplicationEndDate,
+			ResultsDate:        item.ResultsDate,
+			IsAnonymous:        item.IsAnonymous,
+		},
+
 		ID: item.ID,
 
-		GroupID:         item.GroupID,
-		TelegramGroupID: item.Group.TelegramGroupID,
-
-		AdminUserID:        item.AdminUserID,
-		PhotoFileID:        item.PhotoFileID,
-		Description:        item.Description,
-		PublishDate:        item.PublishDate,
-		ApplicationEndDate: item.ApplicationEndDate,
-		ResultsDate:        item.ResultsDate,
-		IsAnonymous:        item.IsAnonymous,
-
+		TelegramGroupID:   item.Group.TelegramGroupID,
 		TelegramMessageID: item.TelegramMessageID,
 
 		WinnerUserID: item.WinnerUserID,
@@ -74,7 +80,7 @@ func mapGiveaways(items []GiveawayModel) []Giveaway {
 	return lo.Map(
 		items,
 		func(item GiveawayModel, _ int) Giveaway {
-			return newGiveaway(item)
+			return *newGiveaway(item)
 		},
 	)
 }

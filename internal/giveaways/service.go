@@ -101,7 +101,7 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 		)
 
 		winners = append(winners, Winner{
-			Giveaway:    newGiveaway(giveaway),
+			Giveaway:    *newGiveaway(giveaway),
 			Participant: newParticipant(winner),
 		})
 	}
@@ -172,6 +172,17 @@ func (s *Service) Participate(ctx context.Context, giveawayID int64, userID int6
 	s.actionsSvc.LogAction(ctx, "giveaway.participated", userID, giveawayID, "Participate in giveaway")
 
 	return nil
+}
+
+func (s *Service) Create(ctx context.Context, giveaway GiveawayDraft) error {
+	model := NewGiveawayModel(
+		giveaway.GroupID, giveaway.AdminUserID,
+		giveaway.PhotoFileID, giveaway.Description,
+		giveaway.PublishDate, giveaway.ApplicationEndDate, giveaway.ResultsDate,
+		giveaway.IsAnonymous,
+	)
+
+	return s.giveaways.Create(ctx, model)
 }
 
 func (s *Service) randomWinner(_ context.Context, giveaway *GiveawayModel) (*ParticipantModel, error) {
