@@ -4,6 +4,7 @@ go 1.24.3
 
 require (
 	github.com/go-core-fx/bunfx v0.0.1
+	github.com/go-core-fx/cachefx v0.0.1
 	github.com/go-core-fx/config v0.1.0
 	github.com/go-core-fx/fiberfx v0.0.1
 	github.com/go-core-fx/goosefx v0.0.0-20251125014753-55991c343134
@@ -16,13 +17,15 @@ require (
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/mysqldialect v1.2.16
 	go.uber.org/fx v1.24.0
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 )
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/alexlast/bunzap v0.1.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-core-fx/fxutil v0.0.0-20251027105421-acea37162eb9 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
@@ -45,6 +48,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
+	github.com/redis/go-redis/v9 v9.17.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
