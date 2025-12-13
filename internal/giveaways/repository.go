@@ -17,7 +17,24 @@ func NewRepository(db *bun.DB) *Repository {
 	}
 }
 
-func (r *Repository) ListScheduled(ctx context.Context) ([]GiveawayModel, error) {
+func (r *Repository) ListByIDs(ctx context.Context, giveawayIDs []int64) ([]GiveawayModel, error) {
+	giveaways := make([]GiveawayModel, 0)
+	if len(giveawayIDs) == 0 {
+		return giveaways, nil
+	}
+
+	if err := r.db.NewSelect().
+		Model(&giveaways).
+		Relation("Group").
+		Where("ga.id IN (?)", bun.In(giveawayIDs)).
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("failed to get giveaways by IDs: %w", err)
+	}
+
+	return giveaways, nil
+}
+
+func (r *Repository) ListReadyToPublish(ctx context.Context) ([]GiveawayModel, error) {
 	giveaways := make([]GiveawayModel, 0)
 	if err := r.db.NewSelect().
 		Model(&giveaways).
@@ -26,7 +43,22 @@ func (r *Repository) ListScheduled(ctx context.Context) ([]GiveawayModel, error)
 		Where("ga.publish_date <= NOW()").
 		Where("g.is_active = ?", true).
 		Scan(ctx); err != nil {
-		return nil, fmt.Errorf("failed to get scheduled giveaways: %w", err)
+		return nil, fmt.Errorf("failed to get ready to publish giveaways: %w", err)
+	}
+
+	return giveaways, nil
+}
+
+func (r *Repository) ListActive(ctx context.Context) ([]GiveawayModel, error) {
+	giveaways := make([]GiveawayModel, 0)
+	if err := r.db.NewSelect().
+		Model(&giveaways).
+		Relation("Group").
+		Where("ga.status = ?", StatusActive).
+		Where("ga.application_end_date > NOW()").
+		Where("g.is_active = ?", true).
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("failed to get active giveaways: %w", err)
 	}
 
 	return giveaways, nil

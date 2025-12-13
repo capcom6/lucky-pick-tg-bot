@@ -52,11 +52,11 @@ func (f *Finish) Run(ctx context.Context) error {
 
 func (f *Finish) notify(ctx context.Context, winner giveaways.Winner) error {
 	params := &bot.SendMessageParams{
-		ChatID: winner.Giveaway.TelegramGroupID,
+		ChatID: winner.Giveaway.Group.TelegramID,
 		Text:   f.formatText(winner),
 		ReplyParameters: &models.ReplyParameters{
 			MessageID:                int(winner.Giveaway.TelegramMessageID),
-			ChatID:                   winner.Giveaway.TelegramGroupID,
+			ChatID:                   winner.Giveaway.Group.TelegramID,
 			AllowSendingWithoutReply: false,
 		},
 		ParseMode: models.ParseModeMarkdown,

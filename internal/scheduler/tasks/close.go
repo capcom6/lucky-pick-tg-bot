@@ -52,7 +52,7 @@ func (c *Close) close(ctx context.Context, giveaway *giveaways.Giveaway) error {
 	if _, err := c.bot.UnpinChatMessage(
 		ctx,
 		&bot.UnpinChatMessageParams{
-			ChatID:    giveaway.TelegramGroupID,
+			ChatID:    giveaway.Group.TelegramID,
 			MessageID: int(giveaway.TelegramMessageID),
 		}); err != nil {
 		c.logger.Error("failed to unpin message",

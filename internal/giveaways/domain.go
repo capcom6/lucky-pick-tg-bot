@@ -3,13 +3,12 @@ package giveaways
 import (
 	"time"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
 	"github.com/samber/lo"
 )
 
-type GiveawayDraft struct {
-	GroupID     int64
-	AdminUserID int64
-
+type GiveawayBase struct {
+	AdminUserID        int64
 	PhotoFileID        string
 	Description        string
 	PublishDate        time.Time
@@ -18,12 +17,18 @@ type GiveawayDraft struct {
 	IsAnonymous        bool
 }
 
+type GiveawayDraft struct {
+	GiveawayBase
+
+	GroupID int64
+}
+
 type Giveaway struct {
-	GiveawayDraft
+	GiveawayBase
 
 	ID int64
 
-	TelegramGroupID int64
+	Group groups.Group
 
 	TelegramMessageID int64
 
@@ -52,8 +57,7 @@ type Winner struct {
 
 func newGiveaway(item GiveawayModel) *Giveaway {
 	return &Giveaway{
-		GiveawayDraft: GiveawayDraft{
-			GroupID:            item.GroupID,
+		GiveawayBase: GiveawayBase{
 			AdminUserID:        item.AdminUserID,
 			PhotoFileID:        item.PhotoFileID,
 			Description:        item.Description,
@@ -65,7 +69,17 @@ func newGiveaway(item GiveawayModel) *Giveaway {
 
 		ID: item.ID,
 
-		TelegramGroupID:   item.Group.TelegramGroupID,
+		Group: groups.Group{
+			GroupDraft: groups.GroupDraft{
+				TelegramID:           item.Group.TelegramGroupID,
+				Title:                item.Group.Title,
+				DiscussionsThreshold: item.Group.DiscussionsThreshold,
+			},
+			ID:        item.Group.ID,
+			CreatedAt: item.Group.CreatedAt,
+			UpdatedAt: item.Group.UpdatedAt,
+		},
+
 		TelegramMessageID: item.TelegramMessageID,
 
 		WinnerUserID: item.WinnerUserID,
