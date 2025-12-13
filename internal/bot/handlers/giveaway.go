@@ -493,14 +493,16 @@ func (g *GiveawayScheduler) handleConfirmation(ctx context.Context, _ *bot.Bot, 
 	}
 
 	if createErr := g.giveawaysSvc.Create(ctx, giveaways.GiveawayDraft{
-		GroupID:            groupID,
-		AdminUserID:        user.ID,
-		PhotoFileID:        state.GetData(giveawayDataPhotoID),
-		Description:        description,
-		PublishDate:        publishDate,
-		ApplicationEndDate: applicationEndDate,
-		ResultsDate:        resultsDate,
-		IsAnonymous:        false,
+		GiveawayBase: giveaways.GiveawayBase{
+			AdminUserID:        user.ID,
+			PhotoFileID:        state.GetData(giveawayDataPhotoID),
+			Description:        description,
+			PublishDate:        publishDate,
+			ApplicationEndDate: applicationEndDate,
+			ResultsDate:        resultsDate,
+			IsAnonymous:        false,
+		},
+		GroupID: groupID,
 	}); createErr != nil {
 		logger.Error("failed to create giveaway", zap.Error(createErr))
 		g.handleError(ctx, update, createErr)

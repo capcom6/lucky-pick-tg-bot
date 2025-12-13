@@ -33,7 +33,7 @@ func (p *Publish) Name() string {
 }
 
 func (p *Publish) Run(ctx context.Context) error {
-	scheduled, err := p.giveawaysSvc.ListScheduled(ctx)
+	scheduled, err := p.giveawaysSvc.ListReadyToPublish(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list scheduled giveaways: %w", err)
 	}
@@ -71,7 +71,7 @@ func (p *Publish) publish(ctx context.Context, giveaway *giveaways.Giveaway) err
 	)
 
 	params := &bot.SendPhotoParams{
-		ChatID: giveaway.TelegramGroupID,
+		ChatID: giveaway.Group.TelegramID,
 		Photo: &models.InputFileString{
 			Data: giveaway.PhotoFileID,
 		},
@@ -89,7 +89,7 @@ func (p *Publish) publish(ctx context.Context, giveaway *giveaways.Giveaway) err
 	}
 
 	if _, pinErr := p.bot.PinChatMessage(ctx, &bot.PinChatMessageParams{
-		ChatID:              giveaway.TelegramGroupID,
+		ChatID:              giveaway.Group.TelegramID,
 		MessageID:           message.ID,
 		DisableNotification: false,
 	}); pinErr != nil {

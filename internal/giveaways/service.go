@@ -33,8 +33,26 @@ func NewService(giveaways *Repository, bot *bot.Bot, logger *zap.Logger, actions
 	}
 }
 
-func (s *Service) ListScheduled(ctx context.Context) ([]Giveaway, error) {
-	items, err := s.giveaways.ListScheduled(ctx)
+func (s *Service) ListByIDs(ctx context.Context, giveawayIDs []int64) ([]Giveaway, error) {
+	items, err := s.giveaways.ListByIDs(ctx, giveawayIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapGiveaways(items), nil
+}
+
+func (s *Service) ListReadyToPublish(ctx context.Context) ([]Giveaway, error) {
+	items, err := s.giveaways.ListReadyToPublish(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapGiveaways(items), nil
+}
+
+func (s *Service) ListActive(ctx context.Context) ([]Giveaway, error) {
+	items, err := s.giveaways.ListActive(ctx)
 	if err != nil {
 		return nil, err
 	}
