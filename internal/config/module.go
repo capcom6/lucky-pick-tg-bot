@@ -1,7 +1,9 @@
 package config
 
 import (
+	"github.com/capcom6/lucky-pick-tg-bot/internal/llm"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/openrouterfx"
 	"github.com/go-core-fx/cachefx"
 	"github.com/go-core-fx/fiberfx"
 	"github.com/go-core-fx/logger"
@@ -41,6 +43,22 @@ func Module() fx.Option {
 			func(cfg Config) gotelegrambotfx.Config {
 				return gotelegrambotfx.Config{
 					Token: cfg.Telegram.Token,
+				}
+			},
+		),
+		fx.Provide(
+			func(cfg Config) openrouterfx.Config {
+				return openrouterfx.Config{
+					Token:   cfg.OpenRouter.Token,
+					AppName: "LuckyPick Bot",
+					AppURL:  "https://lucky-pick.ru",
+				}
+			},
+		),
+		fx.Provide(
+			func(cfg Config) llm.Config {
+				return llm.Config{
+					Model: cfg.OpenRouter.Model,
 				}
 			},
 		),
