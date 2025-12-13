@@ -12,5 +12,6 @@ func Module() fx.Option {
 		fx.Provide(fx.Annotate(NewPublish, fx.ResultTags(`group:"tasks"`))),
 		fx.Provide(fx.Annotate(NewClose, fx.ResultTags(`group:"tasks"`))),
 		fx.Provide(fx.Annotate(NewFinish, fx.ResultTags(`group:"tasks"`))),
+		fx.Provide(fx.Annotate(NewQuestions, fx.ResultTags(`group:"tasks"`))),
 	)
 }

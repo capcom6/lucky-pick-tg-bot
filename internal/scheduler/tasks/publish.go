@@ -35,7 +35,7 @@ func (p *Publish) Name() string {
 func (p *Publish) Run(ctx context.Context) error {
 	scheduled, err := p.giveawaysSvc.ListReadyToPublish(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list scheduled giveaways: %w", err)
+		return fmt.Errorf("failed to list ready to publish giveaways: %w", err)
 	}
 
 	for _, giveaway := range scheduled {
