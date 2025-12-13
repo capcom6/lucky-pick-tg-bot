@@ -13,6 +13,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/go-telegram/bot v1.17.0
 	github.com/pressly/goose/v3 v3.26.0
+	github.com/revrost/go-openrouter v1.1.5
 	github.com/samber/lo v1.52.0
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/mysqldialect v1.2.16
