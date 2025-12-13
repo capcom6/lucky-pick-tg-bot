@@ -14,7 +14,8 @@ type GroupModel struct {
 	TelegramGroupID int64  `bun:"telegram_group_id"`
 	Title           string `bun:"title"`
 
-	IsActive bool `bun:"is_active"`
+	IsActive             bool `bun:"is_active"`
+	DiscussionsThreshold int  `bun:"discussions_period,nullzero"`
 
 	CreatedAt time.Time `bun:"created_at,scanonly"`
 	UpdatedAt time.Time `bun:"updated_at,scanonly"`
@@ -22,12 +23,13 @@ type GroupModel struct {
 	Admins []*adminModel `bun:"ga,rel:has-many,join:id=group_id"`
 }
 
-func newGroupModel(telegramID int64, title string) *GroupModel {
+func newGroupModel(draft *GroupDraft) *GroupModel {
 	//nolint:exhaustruct // partial constructor
 	return &GroupModel{
-		TelegramGroupID: telegramID,
-		Title:           title,
-		IsActive:        true,
+		TelegramGroupID:      draft.TelegramID,
+		Title:                draft.Title,
+		IsActive:             true,
+		DiscussionsThreshold: draft.DiscussionsThreshold,
 	}
 }
 

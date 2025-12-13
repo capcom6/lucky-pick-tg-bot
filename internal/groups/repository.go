@@ -21,9 +21,9 @@ func NewRepository(db *bun.DB) *Repository {
 }
 
 // CreateOrUpdate implements Repository.
-func (r *Repository) CreateOrUpdate(ctx context.Context, group *Group, admins []Admin) error {
+func (r *Repository) CreateOrUpdate(ctx context.Context, group *GroupDraft, admins []Admin) error {
 	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		model := newGroupModel(group.TelegramID, group.Title)
+		model := newGroupModel(group)
 
 		if _, err := tx.NewInsert().
 			Model(model).

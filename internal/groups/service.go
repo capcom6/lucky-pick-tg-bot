@@ -24,7 +24,7 @@ func NewService(groups *Repository, actionsSvc *actions.Service) *Service {
 }
 
 // CreateOrUpdate creates a new group record or updates an existing one.
-func (s *Service) CreateOrUpdate(ctx context.Context, group Group, admin Admin) error {
+func (s *Service) CreateOrUpdate(ctx context.Context, group GroupDraft, admin Admin) error {
 	if err := s.groups.CreateOrUpdate(ctx, &group, []Admin{admin}); err != nil {
 		return fmt.Errorf("failed to create or update group: %w", err)
 	}
@@ -33,7 +33,7 @@ func (s *Service) CreateOrUpdate(ctx context.Context, group Group, admin Admin) 
 	s.actionsSvc.LogAction(
 		ctx,
 		"group.enabled",
-		0,
+		admin.UserID,
 		0,
 		fmt.Sprintf("Enable group %q with telegram ID %d", group.Title, group.TelegramID),
 	)
