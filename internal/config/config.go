@@ -26,15 +26,21 @@ type databaseConfig struct {
 	MaxIdleConns    int           `koanf:"max_idle_conns"`
 }
 
+type openrouterConfig struct {
+	Token string `koanf:"token"`
+	Model string `koanf:"model"`
+}
+
 type cacheConfig struct {
 	URL string `koanf:"url"`
 }
 
 type Config struct {
-	HTTP     httpConfig     `koanf:"http"`
-	Telegram telegramConfig `koanf:"telegram"`
-	Database databaseConfig `koanf:"database"`
-	Cache    cacheConfig    `koanf:"cache"`
+	HTTP       httpConfig       `koanf:"http"`
+	Telegram   telegramConfig   `koanf:"telegram"`
+	Database   databaseConfig   `koanf:"database"`
+	OpenRouter openrouterConfig `koanf:"openrouter"`
+	Cache      cacheConfig      `koanf:"cache"`
 }
 
 func New(logger *zap.Logger) (Config, error) {
@@ -54,6 +60,10 @@ func New(logger *zap.Logger) (Config, error) {
 			ConnMaxLifetime: 1 * time.Hour,
 			MaxOpenConns:    25,
 			MaxIdleConns:    5,
+		},
+		OpenRouter: openrouterConfig{
+			Token: "",
+			Model: "tngtech/tng-r1t-chimera:free",
 		},
 		Cache: cacheConfig{
 			URL: "memory://",
