@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/capcom6/lucky-pick-tg-bot/internal/llm"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/discussions"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/openrouterfx"
 	"github.com/go-core-fx/cachefx"
@@ -56,9 +56,9 @@ func Module() fx.Option {
 			},
 		),
 		fx.Provide(
-			func(cfg Config) llm.Config {
-				return llm.Config{
-					Model: cfg.OpenRouter.Model,
+			func(cfg Config) discussions.Config {
+				return discussions.Config{
+					LLMModel: cfg.Discussions.LLMModel,
 				}
 			},
 		),

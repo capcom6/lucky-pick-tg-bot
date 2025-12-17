@@ -28,11 +28,14 @@ type databaseConfig struct {
 
 type openrouterConfig struct {
 	Token string `koanf:"token"`
-	Model string `koanf:"model"`
 }
 
 type cacheConfig struct {
 	URL string `koanf:"url"`
+}
+
+type discussionsConfig struct {
+	LLMModel string `koanf:"llm_model"`
 }
 
 type Config struct {
@@ -41,6 +44,8 @@ type Config struct {
 	Database   databaseConfig   `koanf:"database"`
 	OpenRouter openrouterConfig `koanf:"openrouter"`
 	Cache      cacheConfig      `koanf:"cache"`
+
+	Discussions discussionsConfig `koanf:"discussions"`
 }
 
 func New(logger *zap.Logger) (Config, error) {
@@ -63,10 +68,13 @@ func New(logger *zap.Logger) (Config, error) {
 		},
 		OpenRouter: openrouterConfig{
 			Token: "",
-			Model: "tngtech/tng-r1t-chimera:free",
 		},
 		Cache: cacheConfig{
 			URL: "memory://",
+		},
+
+		Discussions: discussionsConfig{
+			LLMModel: "tngtech/tng-r1t-chimera:free",
 		},
 	}
 
