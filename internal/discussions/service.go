@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
-	"github.com/capcom6/lucky-pick-tg-bot/internal/llm"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
@@ -15,7 +14,7 @@ type Service struct {
 	discussions *Repository
 
 	giveawaysSvc *giveaways.Service
-	llmSvc       *llm.Service
+	llmSvc       *LLM
 
 	logger *zap.Logger
 }
@@ -23,7 +22,7 @@ type Service struct {
 func NewService(
 	discussions *Repository,
 	giveawaysSvc *giveaways.Service,
-	llmSvc *llm.Service,
+	llmSvc *LLM,
 	logger *zap.Logger,
 ) *Service {
 	return &Service{

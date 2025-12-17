@@ -11,7 +11,6 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
-	"github.com/capcom6/lucky-pick-tg-bot/internal/llm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/scheduler"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/server"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
@@ -44,7 +43,6 @@ func Run() {
 		server.Module(),
 		bot.Module(),
 		scheduler.Module(),
-		llm.Module(),
 		fsm.Module(),
 		//
 		users.Module(),
