@@ -3,6 +3,7 @@ package giveaways
 import "errors"
 
 var (
-	ErrNotFound              = errors.New("giveaway not found")
+	ErrLLMFailed             = errors.New("llm failed")
 	ErrNotEnoughParticipants = errors.New("not enough participants")
+	ErrNotFound              = errors.New("giveaway not found")
 )

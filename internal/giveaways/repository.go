@@ -137,10 +137,11 @@ func (r *Repository) AddParticipant(ctx context.Context, participant *Participan
 	return nil
 }
 
-func (r *Repository) Create(ctx context.Context, giveaway *GiveawayModel) error {
+func (r *Repository) Create(ctx context.Context, giveaway GiveawayPrepared) error {
+	model := newGiveawayModel(giveaway)
+
 	_, err := r.db.NewInsert().
-		Model(giveaway).
-		Returning("*").
+		Model(model).
 		Exec(ctx)
 
 	if err != nil {

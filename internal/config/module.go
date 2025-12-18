@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/discussions"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-core-fx/cachefx"
 	"github.com/go-core-fx/fiberfx"
@@ -56,16 +57,24 @@ func Module() fx.Option {
 			},
 		),
 		fx.Provide(
-			func(cfg Config) discussions.Config {
-				return discussions.Config{
-					LLMModel: cfg.Discussions.LLMModel,
+			func(cfg Config) cachefx.Config {
+				return cachefx.Config{
+					URL: cfg.Cache.URL,
+				}
+			},
+		),
+		//
+		fx.Provide(
+			func(cfg Config) giveaways.Config {
+				return giveaways.Config{
+					LLMModel: cfg.Giveaways.LLMModel,
 				}
 			},
 		),
 		fx.Provide(
-			func(cfg Config) cachefx.Config {
-				return cachefx.Config{
-					URL: cfg.Cache.URL,
+			func(cfg Config) discussions.Config {
+				return discussions.Config{
+					LLMModel: cfg.Discussions.LLMModel,
 				}
 			},
 		),

@@ -68,7 +68,7 @@ func (s *Service) IsAdmin(ctx context.Context, groupID int64, userID int64) (boo
 }
 
 // GetByID returns a group by its ID.
-func (s *Service) GetByID(ctx context.Context, groupID int64) (*Group, error) {
+func (s *Service) GetByID(ctx context.Context, groupID int64) (*GroupWithSettings, error) {
 	return s.groups.GetByID(ctx, groupID)
 }
 

@@ -23,14 +23,15 @@ type GiveawayModel struct {
 
 	ID int64 `bun:"id,pk,autoincrement"`
 
-	GroupID            int64     `bun:"group_id,notnull"`
-	AdminUserID        int64     `bun:"admin_user_id,notnull"`
-	PhotoFileID        string    `bun:"photo_file_id,notnull"`
-	Description        string    `bun:"description,notnull"`
-	PublishDate        time.Time `bun:"publish_date,notnull"`
-	ApplicationEndDate time.Time `bun:"application_end_date,notnull"`
-	ResultsDate        time.Time `bun:"results_date,notnull"`
-	IsAnonymous        bool      `bun:"is_anonymous,notnull"`
+	GroupID             int64     `bun:"group_id,notnull"`
+	AdminUserID         int64     `bun:"admin_user_id,notnull"`
+	PhotoFileID         string    `bun:"photo_file_id,notnull"`
+	Description         string    `bun:"description,notnull"`
+	OriginalDescription string    `bun:"original_description,notnull"`
+	PublishDate         time.Time `bun:"publish_date,notnull"`
+	ApplicationEndDate  time.Time `bun:"application_end_date,notnull"`
+	ResultsDate         time.Time `bun:"results_date,notnull"`
+	IsAnonymous         bool      `bun:"is_anonymous,notnull"`
 
 	TelegramMessageID int64 `bun:"telegram_message_id,nullzero"`
 
@@ -44,24 +45,19 @@ type GiveawayModel struct {
 	Participants []*ParticipantModel `bun:"gap,rel:has-many,join:id=giveaway_id"`
 }
 
-func NewGiveawayModel(
-	groupID, adminUserID int64,
-	photoFileID, description string,
-	publishDate, applicationEndDate, resultsDate time.Time,
-	isAnonymous bool,
-) *GiveawayModel {
+func newGiveawayModel(giveaway GiveawayPrepared) *GiveawayModel {
 	//nolint:exhaustruct // partial constructor
 	return &GiveawayModel{
-		GroupID:     groupID,
-		AdminUserID: adminUserID,
-
-		PhotoFileID:        photoFileID,
-		Description:        description,
-		PublishDate:        publishDate,
-		ApplicationEndDate: applicationEndDate,
-		ResultsDate:        resultsDate,
-
-		IsAnonymous: isAnonymous,
+		GroupID:             giveaway.GroupID,
+		AdminUserID:         giveaway.AdminUserID,
+		PhotoFileID:         giveaway.PhotoFileID,
+		Description:         giveaway.Description,
+		OriginalDescription: giveaway.OriginalDescription,
+		PublishDate:         giveaway.PublishDate,
+		ApplicationEndDate:  giveaway.ApplicationEndDate,
+		ResultsDate:         giveaway.ResultsDate,
+		IsAnonymous:         giveaway.IsAnonymous,
+		Status:              StatusScheduled,
 	}
 }
 

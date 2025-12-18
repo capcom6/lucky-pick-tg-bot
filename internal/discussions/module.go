@@ -10,6 +10,7 @@ func Module() fx.Option {
 		"discussions",
 		logger.WithNamedLogger("discussions"),
 		fx.Provide(NewRepository, fx.Private),
+		fx.Provide(NewLLM, fx.Private),
 		fx.Provide(NewService),
 	)
 }

@@ -21,6 +21,12 @@ type GiveawayDraft struct {
 	IsAnonymous        bool
 }
 
+type GiveawayPrepared struct {
+	GiveawayDraft
+
+	OriginalDescription string
+}
+
 type Giveaway struct {
 	GiveawayDraft
 
