@@ -124,7 +124,7 @@ func (r *Repository) IsAdmin(ctx context.Context, groupID int64, userID int64) (
 }
 
 // GetByID returns a group by its ID.
-func (r *Repository) GetByID(ctx context.Context, groupID int64) (*Group, error) {
+func (r *Repository) GetByID(ctx context.Context, groupID int64) (*GroupWithSettings, error) {
 	group := new(GroupModel)
 	err := r.db.NewSelect().
 		Model(group).
@@ -139,7 +139,7 @@ func (r *Repository) GetByID(ctx context.Context, groupID int64) (*Group, error)
 		return nil, fmt.Errorf("failed to get group by ID: %w", err)
 	}
 
-	return newGroup(group), nil
+	return newGroupWithSettings(group), nil
 }
 
 // UpdateStatus updates the status of a group.

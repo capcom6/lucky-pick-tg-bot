@@ -17,6 +17,7 @@ import (
 type Service struct {
 	giveaways *Repository
 
+	llmSvc     *LLM
 	groupsSvc  *groups.Service
 	actionsSvc *actions.Service
 
@@ -25,6 +26,7 @@ type Service struct {
 
 func NewService(
 	giveaways *Repository,
+	llmSvc *LLM,
 	groupsSvc *groups.Service,
 	actionsSvc *actions.Service,
 	logger *zap.Logger,
@@ -32,11 +34,30 @@ func NewService(
 	return &Service{
 		giveaways: giveaways,
 
+		llmSvc:     llmSvc,
 		groupsSvc:  groupsSvc,
 		actionsSvc: actionsSvc,
 
 		logger: logger,
 	}
+}
+
+func (s *Service) GenerateDescription(
+	ctx context.Context,
+	description string,
+	publishDate time.Time,
+	photo []byte,
+) (string, error) {
+	description, err := s.llmSvc.MakeDescription(ctx, description, publishDate, photo)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate description: %w", err)
+	}
+
+	return description, nil
+}
+
+func (s *Service) Create(ctx context.Context, giveaway GiveawayPrepared) error {
+	return s.giveaways.Create(ctx, giveaway)
 }
 
 func (s *Service) ListByIDs(ctx context.Context, giveawayIDs []int64) ([]Giveaway, error) {
@@ -236,17 +257,6 @@ func (s *Service) Participate(ctx context.Context, giveawayID int64, userID int6
 	return nil
 }
 
-func (s *Service) Create(ctx context.Context, giveaway GiveawayDraft) error {
-	model := NewGiveawayModel(
-		giveaway.GroupID, giveaway.AdminUserID,
-		giveaway.PhotoFileID, giveaway.Description,
-		giveaway.PublishDate, giveaway.ApplicationEndDate, giveaway.ResultsDate,
-		giveaway.IsAnonymous,
-	)
-
-	return s.giveaways.Create(ctx, model)
-}
-
 func (s *Service) randomWinner(_ context.Context, giveaway *GiveawayModel) (*ParticipantModel, error) {
 	if len(giveaway.Participants) == 0 {
 		return nil, ErrNotEnoughParticipants
@@ -284,4 +294,18 @@ func (s *Service) selectGroups(ctx context.Context, items []GiveawayModel) (map[
 	return lo.KeyBy(grps, func(item groups.GroupWithSettings) int64 {
 		return item.ID
 	}), nil
+}
+
+func (s *Service) SettingsForGroup(ctx context.Context, id int64) (*Settings, error) {
+	group, err := s.groupsSvc.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get group: %w", err)
+	}
+
+	settings, err := NewSettings(group.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse settings: %w", err)
+	}
+
+	return &settings, nil
 }

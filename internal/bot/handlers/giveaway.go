@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -36,12 +38,13 @@ const (
 	giveawayCallbackCancel  = "giveaway:cancel"
 
 	// Giveaway data constants.
-	giveawayDataGroupID            = "groupID"
-	giveawayDataPhotoID            = "photoID"
-	giveawayDataDescription        = "description"
-	giveawayDataPublishDate        = "publishDate"
-	giveawayDataApplicationEndDate = "applicationEndDate"
-	giveawayDataResultsDate        = "resultsDate"
+	giveawayDataGroupID             = "groupID"
+	giveawayDataPhotoID             = "photoID"
+	giveawayDataDescription         = "description"
+	giveawayDataOriginalDescription = "original_description"
+	giveawayDataPublishDate         = "publishDate"
+	giveawayDataApplicationEndDate  = "applicationEndDate"
+	giveawayDataResultsDate         = "resultsDate"
 )
 
 // GiveawayScheduler handles giveaway scheduling flow.
@@ -315,7 +318,7 @@ func (g *GiveawayScheduler) handlePhotoAndDescription(ctx context.Context, _ *bo
 
 	state.SetName(giveawayStateWaitPublishDate)
 	state.AddData(giveawayDataPhotoID, photo.FileID)
-	state.AddData(giveawayDataDescription, update.Message.Caption)
+	state.AddData(giveawayDataOriginalDescription, update.Message.Caption)
 
 	// Request start time
 	g.sendReply(
@@ -372,24 +375,53 @@ func (g *GiveawayScheduler) handlePublishDate(ctx context.Context, _ *bot.Bot, u
 }
 
 func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chatID int64, state *fsm.State) {
-	groupID, err := strconv.ParseInt(state.GetData(giveawayDataGroupID), 10, 64)
+	group, settings, err := g.loadGroupAndSettings(ctx)
 	if err != nil {
 		g.sendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatID,
-			Text:   "❌ Failed to parse group information. Please try again.",
+			Text:   "❌ Failed to load group and settings. Please try again.",
 		})
 		return
 	}
 
-	// Get group info
-	group, err := g.groupsSvc.GetByID(ctx, groupID)
-	if err != nil {
-		g.logger.Error("failed to load group information", zap.Error(err), zap.Int64("group_id", groupID))
-		g.sendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatID,
-			Text:   "❌ Failed to load group information. Please try again.",
-		})
-		return
+	state.AddData(giveawayDataDescription, state.GetData(giveawayDataOriginalDescription))
+	if settings.LLMDescription {
+		photo, downErr := g.downloadPhoto(ctx, state.GetData(giveawayDataPhotoID))
+		if downErr != nil {
+			g.logger.Error("failed to download photo", zap.Error(downErr))
+			g.sendMessage(ctx, &bot.SendMessageParams{
+				ChatID: chatID,
+				Text:   "❌ Failed to download photo. Please try again.",
+			})
+			return
+		}
+
+		publishDate, downErr := parseDateTime(state.GetData(giveawayDataPublishDate))
+		if downErr != nil {
+			g.logger.Error("failed to parse publish date", zap.Error(downErr))
+			g.sendMessage(ctx, &bot.SendMessageParams{
+				ChatID: chatID,
+				Text:   "❌ Failed to parse publish date. Please try again.",
+			})
+			return
+		}
+
+		description, downErr := g.giveawaysSvc.GenerateDescription(
+			ctx,
+			state.GetData(giveawayDataOriginalDescription),
+			publishDate,
+			photo,
+		)
+		if downErr != nil {
+			g.logger.Error("failed to generate description", zap.Error(downErr))
+			g.sendMessage(ctx, &bot.SendMessageParams{
+				ChatID: chatID,
+				Text:   "❌ Failed to generate description. Please try again.",
+			})
+			return
+		}
+
+		state.AddData(giveawayDataDescription, description)
 	}
 
 	previewText := fmt.Sprintf(`🎯 *Preview*
@@ -466,8 +498,6 @@ func (g *GiveawayScheduler) handleConfirmation(ctx context.Context, _ *bot.Bot, 
 		return
 	}
 
-	description := state.GetData(giveawayDataDescription)
-
 	publishDate, err := parseDateTime(state.GetData(giveawayDataPublishDate))
 	if err != nil {
 		logger.Error("failed to parse publish date", zap.Error(err))
@@ -488,15 +518,18 @@ func (g *GiveawayScheduler) handleConfirmation(ctx context.Context, _ *bot.Bot, 
 		return
 	}
 
-	if createErr := g.giveawaysSvc.Create(ctx, giveaways.GiveawayDraft{
-		GroupID:            groupID,
-		AdminUserID:        user.ID,
-		PhotoFileID:        state.GetData(giveawayDataPhotoID),
-		Description:        description,
-		PublishDate:        publishDate,
-		ApplicationEndDate: applicationEndDate,
-		ResultsDate:        resultsDate,
-		IsAnonymous:        false,
+	if createErr := g.giveawaysSvc.Create(ctx, giveaways.GiveawayPrepared{
+		GiveawayDraft: giveaways.GiveawayDraft{
+			GroupID:            groupID,
+			AdminUserID:        user.ID,
+			PhotoFileID:        state.GetData(giveawayDataPhotoID),
+			Description:        state.GetData(giveawayDataDescription),
+			PublishDate:        publishDate,
+			ApplicationEndDate: applicationEndDate,
+			ResultsDate:        resultsDate,
+			IsAnonymous:        false,
+		},
+		OriginalDescription: state.GetData(giveawayDataOriginalDescription),
 	}); createErr != nil {
 		logger.Error("failed to create giveaway", zap.Error(createErr))
 		g.handleError(ctx, update, createErr)
@@ -520,6 +553,68 @@ func (g *GiveawayScheduler) handleCancelCommand(ctx context.Context, _ *bot.Bot,
 	state.Clear()
 
 	g.sendReply(ctx, update, &bot.SendMessageParams{Text: "🔄 Operation cancelled."})
+}
+
+func (g *GiveawayScheduler) loadGroupAndSettings(ctx context.Context) (*groups.Group, *giveaways.Settings, error) {
+	state, err := state.GetState(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get state: %w", err)
+	}
+
+	groupID, err := strconv.ParseInt(state.GetData(giveawayDataGroupID), 10, 64)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse group ID: %w", err)
+	}
+
+	group, err := g.groupsSvc.GetByID(ctx, groupID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get group: %w", err)
+	}
+
+	settings, err := giveaways.NewSettings(group.Settings)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse settings: %w", err)
+	}
+
+	return &group.Group, &settings, nil
+}
+
+func (g *GiveawayScheduler) downloadPhoto(ctx context.Context, fileID string) ([]byte, error) {
+	const maxPhotoSize = 10 * 1024 * 1024 // 10MB limit
+	const downloadTimeout = 30 * time.Second
+
+	f, err := g.bot.GetFile(ctx, &bot.GetFileParams{
+		FileID: fileID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file: %w", err)
+	}
+
+	link := g.bot.FileDownloadLink(f)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	client := &http.Client{Timeout: downloadTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download file: %s", resp.Status) //nolint:err113 //generic error is enough
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxPhotoSize))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return data, nil
 }
 
 func parseDateTime(timeStr string) (time.Time, error) {
