@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/discussions"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/go-telegram/bot"
@@ -18,12 +19,14 @@ type Questions struct {
 
 	giveawaysSvc   *giveaways.Service
 	discussionsSvc *discussions.Service
+	actionsSvc     *actions.Service
 }
 
 func NewQuestions(
 	bot *bot.Bot,
 	giveawaysSvc *giveaways.Service,
 	discussionsSvc *discussions.Service,
+	actionsSvc *actions.Service,
 	logger *zap.Logger,
 ) Task {
 	return &Questions{
@@ -34,6 +37,7 @@ func NewQuestions(
 
 		giveawaysSvc:   giveawaysSvc,
 		discussionsSvc: discussionsSvc,
+		actionsSvc:     actionsSvc,
 	}
 }
 
@@ -85,6 +89,13 @@ func (t *Questions) send(ctx context.Context, d discussions.Discussion, ga givea
 	}
 
 	t.logger.Info("message sent", zap.Int("message_id", res.ID))
+	t.actionsSvc.LogAction(
+		ctx,
+		"discussion.started",
+		0,
+		ga.ID,
+		fmt.Sprintf("Start discussion with message ID %d", res.ID),
+	)
 
 	if setErr := t.discussionsSvc.SetTelegramID(ctx, d.ID, int64(res.ID)); setErr != nil {
 		t.logger.Error("failed to save discussion telegram ID", zap.Error(setErr))
