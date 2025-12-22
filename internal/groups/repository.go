@@ -67,8 +67,26 @@ func (r *Repository) CreateOrUpdate(ctx context.Context, group *GroupDraft, admi
 	return nil
 }
 
+func (r *Repository) SelectByIDs(ctx context.Context, ids []int64) ([]GroupWithSettings, error) {
+	var groups []GroupModel
+	if err := r.db.NewSelect().
+		Model(&groups).
+		Distinct().
+		Where("id IN (?)", bun.In(ids)).
+		Relation("Settings").
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("failed to get groups by IDs: %w", err)
+	}
+
+	return lo.Map(
+		groups,
+		func(m GroupModel, _ int) GroupWithSettings {
+			return *newGroupWithSettings(&m)
+		}), nil
+}
+
 // GetByUser returns groups where the user is an admin.
-func (r *Repository) GetByUser(ctx context.Context, userID int64) ([]GroupModel, error) {
+func (r *Repository) GetByUser(ctx context.Context, userID int64) ([]Group, error) {
 	var groups []GroupModel
 	if err := r.db.NewSelect().
 		Model(&groups).
@@ -79,7 +97,11 @@ func (r *Repository) GetByUser(ctx context.Context, userID int64) ([]GroupModel,
 		return nil, fmt.Errorf("failed to get user admin groups: %w", err)
 	}
 
-	return groups, nil
+	return lo.Map(
+		groups,
+		func(m GroupModel, _ int) Group {
+			return *newGroup(&m)
+		}), nil
 }
 
 func (r *Repository) IsAdmin(ctx context.Context, groupID int64, userID int64) (bool, error) {
@@ -101,10 +123,11 @@ func (r *Repository) IsAdmin(ctx context.Context, groupID int64, userID int64) (
 }
 
 // GetByID returns a group by its ID.
-func (r *Repository) GetByID(ctx context.Context, groupID int64) (*GroupModel, error) {
+func (r *Repository) GetByID(ctx context.Context, groupID int64) (*Group, error) {
 	group := new(GroupModel)
 	err := r.db.NewSelect().
 		Model(group).
+		Relation("Settings").
 		Where("id = ?", groupID).
 		Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -115,7 +138,7 @@ func (r *Repository) GetByID(ctx context.Context, groupID int64) (*GroupModel, e
 		return nil, fmt.Errorf("failed to get group by ID: %w", err)
 	}
 
-	return group, nil
+	return newGroup(group), nil
 }
 
 // UpdateStatus updates the status of a group.
@@ -127,6 +150,26 @@ func (r *Repository) UpdateStatus(ctx context.Context, telegramID int64, isActiv
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to update group status: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateSettings updates the settings of a group.
+func (r *Repository) UpdateSettings(ctx context.Context, groupID int64, settings map[string]string) error {
+	rows := lo.MapToSlice(
+		settings,
+		func(key, value string) *settingsModel {
+			return newSettingsModel(groupID, key, value)
+		},
+	)
+
+	_, err := r.db.NewInsert().
+		Model(&rows).
+		On("DUPLICATE KEY UPDATE").
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to update settings: %w", err)
 	}
 
 	return nil

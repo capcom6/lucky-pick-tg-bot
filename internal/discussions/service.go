@@ -36,20 +36,14 @@ func NewService(
 }
 
 func (s *Service) Generate(ctx context.Context) ([]Discussion, error) {
-	givs, err := s.giveawaysSvc.ListActive(ctx)
+	givs, err := s.prepare(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list giveaways: %w", err)
+		s.logger.Error("failed to prepare giveaways", zap.Error(err))
+		return nil, fmt.Errorf("failed to prepare giveaways: %w", err)
 	}
 
-	givs = lo.Filter(
-		givs,
-		func(item giveaways.Giveaway, _ int) bool {
-			return item.Group.DiscussionsThreshold > 0 &&
-				time.Since(item.PublishDate) > time.Hour*time.Duration(item.Group.DiscussionsThreshold)
-		},
-	)
-
 	if len(givs) == 0 {
+		s.logger.Debug("no giveaways to process for discussions")
 		return []Discussion{}, nil
 	}
 
@@ -96,6 +90,7 @@ func (s *Service) Generate(ctx context.Context) ([]Discussion, error) {
 				zap.Error(createErr),
 			)
 		} else {
+			s.logger.Debug("discussion created successfully", zap.Int64("giveaway_id", ga.ID))
 			questions = append(questions, *d)
 		}
 	}
@@ -105,4 +100,31 @@ func (s *Service) Generate(ctx context.Context) ([]Discussion, error) {
 
 func (s *Service) SetTelegramID(ctx context.Context, id int64, telegramID int64) error {
 	return s.discussions.SetTelegramID(ctx, id, telegramID)
+}
+
+func (s *Service) prepare(ctx context.Context) ([]giveaways.Giveaway, error) {
+	givs, err := s.giveawaysSvc.ListActive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list giveaways: %w", err)
+	}
+
+	prepared := make([]giveaways.Giveaway, 0, len(givs))
+	for _, item := range givs {
+		settings, setErr := NewSettings(item.Group.Settings)
+		if setErr != nil {
+			s.logger.Error("failed to parse settings",
+				zap.Int64("group_id", item.GroupID),
+				zap.Error(setErr),
+			)
+			continue
+		}
+
+		if settings.Delay == 0 || time.Since(item.PublishDate) < settings.Delay {
+			continue
+		}
+
+		prepared = append(prepared, item)
+	}
+
+	return prepared, nil
 }
