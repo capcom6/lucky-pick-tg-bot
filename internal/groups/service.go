@@ -41,6 +41,10 @@ func (s *Service) CreateOrUpdate(ctx context.Context, group GroupDraft, admin Ad
 	return nil
 }
 
+func (s *Service) SelectByIDs(ctx context.Context, ids []int64) ([]GroupWithSettings, error) {
+	return s.groups.SelectByIDs(ctx, ids)
+}
+
 // Disable implements Service.
 func (s *Service) Disable(ctx context.Context, telegramID int64) error {
 	if err := s.groups.UpdateStatus(ctx, telegramID, false); err != nil {
@@ -54,7 +58,7 @@ func (s *Service) Disable(ctx context.Context, telegramID int64) error {
 }
 
 // GetUserAdminGroups returns groups where the user is an admin.
-func (s *Service) GetUserAdminGroups(ctx context.Context, userID int64) ([]GroupModel, error) {
+func (s *Service) GetUserAdminGroups(ctx context.Context, userID int64) ([]Group, error) {
 	return s.groups.GetByUser(ctx, userID)
 }
 
@@ -64,6 +68,15 @@ func (s *Service) IsAdmin(ctx context.Context, groupID int64, userID int64) (boo
 }
 
 // GetByID returns a group by its ID.
-func (s *Service) GetByID(ctx context.Context, groupID int64) (*GroupModel, error) {
+func (s *Service) GetByID(ctx context.Context, groupID int64) (*Group, error) {
 	return s.groups.GetByID(ctx, groupID)
+}
+
+// UpdateSettings updates the settings of a group.
+func (s *Service) UpdateSettings(ctx context.Context, groupID int64, settings map[string]string) error {
+	if len(settings) == 0 {
+		return nil
+	}
+
+	return s.groups.UpdateSettings(ctx, groupID, settings)
 }

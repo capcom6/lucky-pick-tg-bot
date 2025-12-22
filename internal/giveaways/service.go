@@ -9,24 +9,30 @@ import (
 	"time"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
-	"github.com/go-telegram/bot"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
 type Service struct {
 	giveaways *Repository
 
-	bot        *bot.Bot
+	groupsSvc  *groups.Service
 	actionsSvc *actions.Service
 
 	logger *zap.Logger
 }
 
-func NewService(giveaways *Repository, bot *bot.Bot, logger *zap.Logger, actionsSvc *actions.Service) *Service {
+func NewService(
+	giveaways *Repository,
+	groupsSvc *groups.Service,
+	actionsSvc *actions.Service,
+	logger *zap.Logger,
+) *Service {
 	return &Service{
 		giveaways: giveaways,
 
-		bot:        bot,
+		groupsSvc:  groupsSvc,
 		actionsSvc: actionsSvc,
 
 		logger: logger,
@@ -39,7 +45,12 @@ func (s *Service) ListByIDs(ctx context.Context, giveawayIDs []int64) ([]Giveawa
 		return nil, err
 	}
 
-	return mapGiveaways(items), nil
+	grps, err := s.selectGroups(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapGiveaways(items, grps)
 }
 
 func (s *Service) ListReadyToPublish(ctx context.Context) ([]Giveaway, error) {
@@ -48,7 +59,12 @@ func (s *Service) ListReadyToPublish(ctx context.Context) ([]Giveaway, error) {
 		return nil, err
 	}
 
-	return mapGiveaways(items), nil
+	grps, err := s.selectGroups(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapGiveaways(items, grps)
 }
 
 func (s *Service) ListActive(ctx context.Context) ([]Giveaway, error) {
@@ -57,7 +73,12 @@ func (s *Service) ListActive(ctx context.Context) ([]Giveaway, error) {
 		return nil, err
 	}
 
-	return mapGiveaways(items), nil
+	grps, err := s.selectGroups(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapGiveaways(items, grps)
 }
 
 func (s *Service) ListApplicationFinished(ctx context.Context) ([]Giveaway, error) {
@@ -66,7 +87,12 @@ func (s *Service) ListApplicationFinished(ctx context.Context) ([]Giveaway, erro
 		return nil, err
 	}
 
-	return mapGiveaways(items), nil
+	grps, err := s.selectGroups(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapGiveaways(items, grps)
 }
 
 func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
@@ -75,9 +101,21 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 		return nil, err
 	}
 
+	grps, err := s.selectGroups(ctx, giveaways)
+	if err != nil {
+		return nil, err
+	}
+
 	winners := make([]Winner, 0)
 	for _, giveaway := range giveaways {
 		logger := s.logger.With(zap.Int64("giveaway_id", giveaway.ID))
+
+		g, ok := grps[giveaway.GroupID]
+		if !ok {
+			logger.Error("group not found", zap.Int64("group_id", giveaway.GroupID))
+			continue
+		}
+
 		logger.Debug("starting winner selection")
 		winner, winErr := s.randomWinner(ctx, &giveaway)
 		if winErr != nil && !errors.Is(winErr, ErrNotEnoughParticipants) {
@@ -95,6 +133,7 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 			actionType = "giveaway.cancelled"
 			actionDesc = fmt.Sprintf("Cancel giveaway: %s", winErr.Error())
 		} else {
+			logger.Debug("winner selected successfully", zap.Int64("giveaway_id", giveaway.ID), zap.Int64("winner_user_id", winner.UserID))
 			newStatus = NewFinishGiveaway(giveaway.ID, winner.UserID)
 			actionType = "giveaway.finished"
 			actionDesc = "Finish giveaway"
@@ -109,6 +148,11 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 			)
 			continue
 		}
+		logger.Debug(
+			"giveaway updated successfully",
+			zap.Int64("giveaway_id", giveaway.ID),
+			zap.String("status", string(newStatus.Status)),
+		)
 
 		s.actionsSvc.LogAction(
 			ctx,
@@ -119,7 +163,7 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 		)
 
 		winners = append(winners, Winner{
-			Giveaway:    *newGiveaway(giveaway),
+			Giveaway:    *newGiveaway(giveaway, g),
 			Participant: newParticipant(winner),
 		})
 	}
@@ -218,4 +262,26 @@ func (s *Service) randomWinner(_ context.Context, giveaway *GiveawayModel) (*Par
 	}
 
 	return giveaway.Participants[idx.Int64()], nil
+}
+
+func (s *Service) selectGroups(ctx context.Context, items []GiveawayModel) (map[int64]groups.GroupWithSettings, error) {
+	if len(items) == 0 {
+		return map[int64]groups.GroupWithSettings{}, nil
+	}
+
+	ids := lo.UniqMap(
+		items,
+		func(item GiveawayModel, _ int) int64 {
+			return item.GroupID
+		},
+	)
+
+	grps, err := s.groupsSvc.SelectByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list groups: %w", err)
+	}
+
+	return lo.KeyBy(grps, func(item groups.GroupWithSettings) int64 {
+		return item.ID
+	}), nil
 }

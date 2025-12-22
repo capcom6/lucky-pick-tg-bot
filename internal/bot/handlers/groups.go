@@ -63,7 +63,7 @@ func (h *Groups) handle(ctx context.Context, _ *bot.Bot, update *models.Update) 
 	case models.ChatMemberTypeOwner, models.ChatMemberTypeAdministrator:
 		if createErr := h.groupsSvc.CreateOrUpdate(
 			ctx,
-			groups.GroupDraft{TelegramID: update.MyChatMember.Chat.ID, Title: update.MyChatMember.Chat.Title, DiscussionsThreshold: 0},
+			groups.GroupDraft{TelegramID: update.MyChatMember.Chat.ID, Title: update.MyChatMember.Chat.Title},
 			groups.Admin{UserID: user.ID},
 		); createErr != nil {
 			h.logger.Error("failed to create or update group", zap.Error(createErr))
