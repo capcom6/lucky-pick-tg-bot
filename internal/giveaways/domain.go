@@ -1,13 +1,17 @@
 package giveaways
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
-	"github.com/samber/lo"
 )
 
 type GiveawayBase struct {
+}
+
+type GiveawayDraft struct {
+	GroupID            int64
 	AdminUserID        int64
 	PhotoFileID        string
 	Description        string
@@ -17,18 +21,12 @@ type GiveawayBase struct {
 	IsAnonymous        bool
 }
 
-type GiveawayDraft struct {
-	GiveawayBase
-
-	GroupID int64
-}
-
 type Giveaway struct {
-	GiveawayBase
+	GiveawayDraft
 
 	ID int64
 
-	Group groups.Group
+	Group groups.GroupWithSettings
 
 	TelegramMessageID int64
 
@@ -55,9 +53,10 @@ type Winner struct {
 	Participant *Participant
 }
 
-func newGiveaway(item GiveawayModel) *Giveaway {
+func newGiveaway(item GiveawayModel, group groups.GroupWithSettings) *Giveaway {
 	return &Giveaway{
-		GiveawayBase: GiveawayBase{
+		GiveawayDraft: GiveawayDraft{
+			GroupID:            item.GroupID,
 			AdminUserID:        item.AdminUserID,
 			PhotoFileID:        item.PhotoFileID,
 			Description:        item.Description,
@@ -69,16 +68,7 @@ func newGiveaway(item GiveawayModel) *Giveaway {
 
 		ID: item.ID,
 
-		Group: groups.Group{
-			GroupDraft: groups.GroupDraft{
-				TelegramID:           item.Group.TelegramGroupID,
-				Title:                item.Group.Title,
-				DiscussionsThreshold: item.Group.DiscussionsThreshold,
-			},
-			ID:        item.Group.ID,
-			CreatedAt: item.Group.CreatedAt,
-			UpdatedAt: item.Group.UpdatedAt,
-		},
+		Group: group,
 
 		TelegramMessageID: item.TelegramMessageID,
 
@@ -90,13 +80,19 @@ func newGiveaway(item GiveawayModel) *Giveaway {
 	}
 }
 
-func mapGiveaways(items []GiveawayModel) []Giveaway {
-	return lo.Map(
-		items,
-		func(item GiveawayModel, _ int) Giveaway {
-			return *newGiveaway(item)
-		},
-	)
+func mapGiveaways(items []GiveawayModel, grps map[int64]groups.GroupWithSettings) ([]Giveaway, error) {
+	result := make([]Giveaway, 0, len(items))
+
+	for _, item := range items {
+		g, ok := grps[item.GroupID]
+		if !ok {
+			return nil, fmt.Errorf("%w: ID %d", groups.ErrNotFound, item.GroupID)
+		}
+
+		result = append(result, *newGiveaway(item, g))
+	}
+
+	return result, nil
 }
 
 func newParticipant(item *ParticipantModel) *Participant {
