@@ -32,6 +32,8 @@ github.com/go-core-fx/goosefx v0.0.0-20251125014753-55991c343134 h1:8BzHkBQaAMDM
 github.com/go-core-fx/goosefx v0.0.0-20251125014753-55991c343134/go.mod h1:C4Xw9ea44//B3JEpWmZ7MbeMrHOnWWLBGa182STrkXo=
 github.com/go-core-fx/logger v0.0.1 h1:e3iJPEfV09fAZnVdROhcpDEbw7DHaNfY/OWCLX0wipA=
 github.com/go-core-fx/logger v0.0.1/go.mod h1:dvExTnpqUry/Qr0x0rg8UiKVUPv3PBb1JT/0llX5NWc=
+github.com/go-core-fx/openrouterfx v0.0.0-20251226004439-793d5cf5880c h1:FEUAyFkTey8grN1M4p4iwT9SGn6Ogp/zhn5HCknfRxU=
+github.com/go-core-fx/openrouterfx v0.0.0-20251226004439-793d5cf5880c/go.mod h1:s1sOt4VQkamFEJPPCgWgswjRtfKXYuPxhtNE2/CW7mo=
 github.com/go-core-fx/sqlfx v0.0.1 h1:yOMNjSnlie+3wka9SR6UcokQ3cg4aB2EkrKexVcn3g0=
 github.com/go-core-fx/sqlfx v0.0.1/go.mod h1:D8fFoIeCUGthMN2nOeYIqs+yYH5CEDJBNJeMP4+Usk8=
 github.com/go-sql-driver/mysql v1.9.3 h1:U/N249h2WzJ3Ukj8SowVFjdtZKfu9vlLZxjPXV1aweo=

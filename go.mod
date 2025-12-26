@@ -1,6 +1,6 @@
 module github.com/capcom6/lucky-pick-tg-bot
 
-go 1.24.3
+go 1.25.5
 
 require (
 	github.com/go-core-fx/bunfx v0.0.1
@@ -9,6 +9,7 @@ require (
 	github.com/go-core-fx/fiberfx v0.0.1
 	github.com/go-core-fx/goosefx v0.0.0-20251125014753-55991c343134
 	github.com/go-core-fx/logger v0.0.1
+	github.com/go-core-fx/openrouterfx v0.0.0-20251226004439-793d5cf5880c
 	github.com/go-core-fx/sqlfx v0.0.1
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/go-telegram/bot v1.17.0
