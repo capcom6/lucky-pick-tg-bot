@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/keyboards"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/state"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
@@ -237,20 +238,11 @@ func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bo
 	g.showGroupSelectionKeyboard(ctx, update.Message.Chat.ID, adminGroups)
 }
 
-func (g *GiveawayScheduler) showGroupSelectionKeyboard(ctx context.Context, chatID int64, groups []groups.Group) {
-	buttons := make([][]models.InlineKeyboardButton, 0, len(groups))
-	for _, group := range groups {
-		buttons = append(buttons, []models.InlineKeyboardButton{
-			{
-				Text:         group.Title,
-				CallbackData: giveawayCallbackGroup + strconv.FormatInt(group.ID, 10),
-			},
-		})
-	}
-
-	markup := &models.InlineKeyboardMarkup{
-		InlineKeyboard: buttons,
-	}
+func (g *GiveawayScheduler) showGroupSelectionKeyboard(ctx context.Context, chatID int64, groups []groups.GroupWithSettings) {
+	markup := keyboards.GroupSelectionKeyboard(
+		giveawayCallbackGroup,
+		groups,
+	)
 
 	g.sendMessage(
 		ctx,
