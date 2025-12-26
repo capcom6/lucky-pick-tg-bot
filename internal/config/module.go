@@ -3,10 +3,10 @@ package config
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/llm"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
-	"github.com/capcom6/lucky-pick-tg-bot/pkg/openrouterfx"
 	"github.com/go-core-fx/cachefx"
 	"github.com/go-core-fx/fiberfx"
 	"github.com/go-core-fx/logger"
+	"github.com/go-core-fx/openrouterfx"
 	"github.com/go-core-fx/sqlfx"
 	"go.uber.org/fx"
 )
