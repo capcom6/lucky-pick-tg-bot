@@ -68,6 +68,10 @@ func (r *Repository) CreateOrUpdate(ctx context.Context, group *GroupDraft, admi
 }
 
 func (r *Repository) SelectByIDs(ctx context.Context, ids []int64) ([]GroupWithSettings, error) {
+	if len(ids) == 0 {
+		return []GroupWithSettings{}, nil
+	}
+
 	var groups []GroupModel
 	if err := r.db.NewSelect().
 		Model(&groups).
