@@ -58,7 +58,7 @@ func (s *Service) Disable(ctx context.Context, telegramID int64) error {
 }
 
 // GetUserAdminGroups returns groups where the user is an admin.
-func (s *Service) GetUserAdminGroups(ctx context.Context, userID int64) ([]Group, error) {
+func (s *Service) GetUserAdminGroups(ctx context.Context, userID int64) ([]GroupWithSettings, error) {
 	return s.groups.GetByUser(ctx, userID)
 }
 
@@ -68,7 +68,7 @@ func (s *Service) IsAdmin(ctx context.Context, groupID int64, userID int64) (boo
 }
 
 // GetByID returns a group by its ID.
-func (s *Service) GetByID(ctx context.Context, groupID int64) (*Group, error) {
+func (s *Service) GetByID(ctx context.Context, groupID int64) (*GroupWithSettings, error) {
 	return s.groups.GetByID(ctx, groupID)
 }
 
