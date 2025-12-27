@@ -102,16 +102,6 @@ func (h *Groups) filterGroupsCommand(update *models.Update) bool {
 	return update.Message.Text == groupsCommand && update.Message.Chat.Type == models.ChatTypePrivate
 }
 
-// func (h *Groups) filterLLMCallback(update *models.Update) bool {
-// 	if update.CallbackQuery == nil {
-// 		return false
-// 	}
-// 	return strings.HasPrefix(update.CallbackQuery.Data, groupsCallbackShowLLMSettings) ||
-// 		strings.HasPrefix(update.CallbackQuery.Data, groupsCallbackToggleLLM) ||
-// 		strings.HasPrefix(update.CallbackQuery.Data, groupsCallbackChangeLLMModel) ||
-// 		strings.HasPrefix(update.CallbackQuery.Data, groupsCallbackSelectLLMModel)
-// }
-
 func (h *Groups) handleChatMember(ctx context.Context, _ *bot.Bot, update *models.Update) {
 	h.logger.Debug("my chat member update", zap.Any("update", update))
 
@@ -277,8 +267,8 @@ func (h *Groups) handleEditGroupSettings(ctx context.Context, _ *bot.Bot, update
 	}
 
 	// Validate group ID format (don't actually need to parse it for this basic implementation)
-	if _, err := strconv.ParseInt(groupIDstr, 10, 64); err != nil {
-		h.withContext(update).Error("failed to parse group ID", zap.Error(err))
+	if _, parseErr := strconv.ParseInt(groupIDstr, 10, 64); parseErr != nil {
+		h.withContext(update).Error("failed to parse group ID", zap.Error(parseErr))
 		h.sendReply(
 			ctx,
 			update,
@@ -305,11 +295,12 @@ func (h *Groups) handleEditGroupSettings(ctx context.Context, _ *bot.Bot, update
 func (h *Groups) showGroupSettings(ctx context.Context, update *models.Update, groupID int64) {
 	// Extract user from the appropriate update field
 	var user *models.User
-	if update.CallbackQuery != nil {
+	switch {
+	case update.CallbackQuery != nil:
 		user = &update.CallbackQuery.From
-	} else if update.Message != nil && update.Message.From != nil {
+	case update.Message != nil && update.Message.From != nil:
 		user = update.Message.From
-	} else {
+	default:
 		h.withContext(update).Error("invalid update: no user found")
 		return
 	}
