@@ -238,7 +238,11 @@ func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bo
 	g.showGroupSelectionKeyboard(ctx, update.Message.Chat.ID, adminGroups)
 }
 
-func (g *GiveawayScheduler) showGroupSelectionKeyboard(ctx context.Context, chatID int64, groups []groups.GroupWithSettings) {
+func (g *GiveawayScheduler) showGroupSelectionKeyboard(
+	ctx context.Context,
+	chatID int64,
+	groups []groups.GroupWithSettings,
+) {
 	markup := keyboards.GroupSelectionKeyboard(
 		giveawayCallbackGroup,
 		groups,
