@@ -28,11 +28,18 @@ type databaseConfig struct {
 
 type openrouterConfig struct {
 	Token string `koanf:"token"`
-	Model string `koanf:"model"`
 }
 
 type cacheConfig struct {
 	URL string `koanf:"url"`
+}
+
+type giveawaysConfig struct {
+	LLMModel string `koanf:"llm_model"`
+}
+
+type discussionsConfig struct {
+	LLMModel string `koanf:"llm_model"`
 }
 
 type Config struct {
@@ -41,6 +48,9 @@ type Config struct {
 	Database   databaseConfig   `koanf:"database"`
 	OpenRouter openrouterConfig `koanf:"openrouter"`
 	Cache      cacheConfig      `koanf:"cache"`
+
+	Giveaways   giveawaysConfig   `koanf:"giveaways"`
+	Discussions discussionsConfig `koanf:"discussions"`
 }
 
 func New(logger *zap.Logger) (Config, error) {
@@ -63,10 +73,16 @@ func New(logger *zap.Logger) (Config, error) {
 		},
 		OpenRouter: openrouterConfig{
 			Token: "",
-			Model: "tngtech/tng-r1t-chimera:free",
 		},
 		Cache: cacheConfig{
 			URL: "memory://",
+		},
+
+		Giveaways: giveawaysConfig{
+			LLMModel: "google/gemini-2.0-flash-001",
+		},
+		Discussions: discussionsConfig{
+			LLMModel: "tngtech/tng-r1t-chimera:free",
 		},
 	}
 

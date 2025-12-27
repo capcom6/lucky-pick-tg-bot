@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/keyboards"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/state"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
@@ -237,20 +238,15 @@ func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bo
 	g.showGroupSelectionKeyboard(ctx, update.Message.Chat.ID, adminGroups)
 }
 
-func (g *GiveawayScheduler) showGroupSelectionKeyboard(ctx context.Context, chatID int64, groups []groups.GroupModel) {
-	buttons := make([][]models.InlineKeyboardButton, 0, len(groups))
-	for _, group := range groups {
-		buttons = append(buttons, []models.InlineKeyboardButton{
-			{
-				Text:         group.Title,
-				CallbackData: giveawayCallbackGroup + strconv.FormatInt(group.ID, 10),
-			},
-		})
-	}
-
-	markup := &models.InlineKeyboardMarkup{
-		InlineKeyboard: buttons,
-	}
+func (g *GiveawayScheduler) showGroupSelectionKeyboard(
+	ctx context.Context,
+	chatID int64,
+	groups []groups.GroupWithSettings,
+) {
+	markup := keyboards.GroupSelectionKeyboard(
+		giveawayCallbackGroup,
+		groups,
+	)
 
 	g.sendMessage(
 		ctx,
@@ -493,16 +489,14 @@ func (g *GiveawayScheduler) handleConfirmation(ctx context.Context, _ *bot.Bot, 
 	}
 
 	if createErr := g.giveawaysSvc.Create(ctx, giveaways.GiveawayDraft{
-		GiveawayBase: giveaways.GiveawayBase{
-			AdminUserID:        user.ID,
-			PhotoFileID:        state.GetData(giveawayDataPhotoID),
-			Description:        description,
-			PublishDate:        publishDate,
-			ApplicationEndDate: applicationEndDate,
-			ResultsDate:        resultsDate,
-			IsAnonymous:        false,
-		},
-		GroupID: groupID,
+		GroupID:            groupID,
+		AdminUserID:        user.ID,
+		PhotoFileID:        state.GetData(giveawayDataPhotoID),
+		Description:        description,
+		PublishDate:        publishDate,
+		ApplicationEndDate: applicationEndDate,
+		ResultsDate:        resultsDate,
+		IsAnonymous:        false,
 	}); createErr != nil {
 		logger.Error("failed to create giveaway", zap.Error(createErr))
 		g.handleError(ctx, update, createErr)
