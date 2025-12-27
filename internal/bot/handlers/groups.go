@@ -81,6 +81,14 @@ func (h *Groups) Register(b *bot.Bot) {
 		},
 		h.handleShowGroupSettings,
 	)
+
+	b.RegisterHandlerMatchFunc(
+		func(update *models.Update) bool {
+			return update.CallbackQuery != nil &&
+				strings.HasPrefix(update.CallbackQuery.Data, groupsCallbackEditSettings)
+		},
+		h.handleEditGroupSettings,
+	)
 }
 
 func (h *Groups) filterChatMember(update *models.Update) bool {
@@ -237,9 +245,77 @@ func (h *Groups) handleShowGroupSettings(ctx context.Context, _ *bot.Bot, update
 	h.showGroupSettings(ctx, update, groupID)
 }
 
+func (h *Groups) handleEditGroupSettings(ctx context.Context, _ *bot.Bot, update *models.Update) {
+	if update.CallbackQuery == nil {
+		h.withContext(update).Error("invalid update: missing callback query")
+		return
+	}
+
+	data := update.CallbackQuery.Data
+	settingKey := strings.TrimPrefix(data, groupsCallbackEditSettings)
+
+	// Get group ID from state
+	state, err := state.GetState(ctx)
+	if err != nil {
+		h.withContext(update).Error("failed to get state", zap.Error(err))
+		h.handleError(ctx, update, err)
+		return
+	}
+
+	groupIDstr := state.GetData(groupsDataGroupID)
+	if groupIDstr == "" {
+		h.withContext(update).Error("missing group ID in state")
+		h.sendReply(
+			ctx,
+			update,
+			&bot.SendMessageParams{
+				Text:      "❌ Missing group context. Please try again from the groups menu.",
+				ParseMode: models.ParseModeMarkdown,
+			},
+		)
+		return
+	}
+
+	// Validate group ID format (don't actually need to parse it for this basic implementation)
+	if _, err := strconv.ParseInt(groupIDstr, 10, 64); err != nil {
+		h.withContext(update).Error("failed to parse group ID", zap.Error(err))
+		h.sendReply(
+			ctx,
+			update,
+			&bot.SendMessageParams{
+				Text:      "❌ Invalid group context. Please try again from the groups menu.",
+				ParseMode: models.ParseModeMarkdown,
+			},
+		)
+		return
+	}
+
+	// TODO: Implement actual setting editing logic
+	// For now, just acknowledge the button click
+	h.sendReply(
+		ctx,
+		update,
+		&bot.SendMessageParams{
+			Text:      fmt.Sprintf("🔧 Edit setting: %s (not yet implemented)", bot.EscapeMarkdown(settingKey)),
+			ParseMode: models.ParseModeMarkdown,
+		},
+	)
+}
+
 func (h *Groups) showGroupSettings(ctx context.Context, update *models.Update, groupID int64) {
+	// Extract user from the appropriate update field
+	var user *models.User
+	if update.CallbackQuery != nil {
+		user = &update.CallbackQuery.From
+	} else if update.Message != nil && update.Message.From != nil {
+		user = update.Message.From
+	} else {
+		h.withContext(update).Error("invalid update: no user found")
+		return
+	}
+
 	// Get current settings
-	if !h.isUserGroupAdmin(ctx, groupID, &update.CallbackQuery.From) {
+	if !h.isUserGroupAdmin(ctx, groupID, user) {
 		h.sendReply(
 			ctx,
 			update,
