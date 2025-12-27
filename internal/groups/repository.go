@@ -86,21 +86,22 @@ func (r *Repository) SelectByIDs(ctx context.Context, ids []int64) ([]GroupWithS
 }
 
 // GetByUser returns groups where the user is an admin.
-func (r *Repository) GetByUser(ctx context.Context, userID int64) ([]Group, error) {
+func (r *Repository) GetByUser(ctx context.Context, userID int64) ([]GroupWithSettings, error) {
 	var groups []GroupModel
 	if err := r.db.NewSelect().
 		Model(&groups).
 		Join("JOIN group_admins ga ON ga.group_id = g.id").
 		Where("g.is_active = ?", true).
 		Where("ga.user_id = ?", userID).
+		Relation("Settings").
 		Scan(ctx); err != nil {
 		return nil, fmt.Errorf("failed to get user admin groups: %w", err)
 	}
 
 	return lo.Map(
 		groups,
-		func(m GroupModel, _ int) Group {
-			return *newGroup(&m)
+		func(m GroupModel, _ int) GroupWithSettings {
+			return *newGroupWithSettings(&m)
 		}), nil
 }
 
