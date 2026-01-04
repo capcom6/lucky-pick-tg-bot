@@ -260,7 +260,9 @@ linters:
         - ^github.com/go-telegram/bot.+Params$
         - ^github.com/go-telegram/bot/models.+$
         - ^github.com/gofiber/.+Config$
+        - ^github.com/golang-jwt/jwt/v5.+Claims$
         - ^github.com/mitchellh/mapstructure.DecoderConfig$
+        - ^github.com/mymmrac/telego.+Parameters$
         - ^github.com/prometheus/client_golang/.+Opts$
         - ^github.com/secsy/goftp.Config$
         - ^github.com/Shopify/sarama.Config$
@@ -463,6 +465,8 @@ linters:
       - source: "TODO"
         linters: [godot]
       - text: "should have a package comment"
+        linters: [revive]
+      - text: "avoid meaningless package names"
         linters: [revive]
       - text: 'exported \S+ \S+ should have comment( \(or a comment on this block\))? or be unexported'
         linters: [revive]
