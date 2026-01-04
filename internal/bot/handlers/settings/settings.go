@@ -1,0 +1,578 @@
+package settings
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/filter"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/middlewares/state"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/settings"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
+	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
+	"go.uber.org/zap"
+)
+
+// Settings handles the group settings editing flow.
+type Settings struct {
+	handler.BaseHandler
+
+	fsmService  *fsm.Service
+	usersSvc    *users.Service
+	groupsSvc   *groups.Service
+	settingsSvc *settings.Service
+}
+
+func NewHandler(
+	bot *bot.Bot,
+	fsmService *fsm.Service,
+	usersSvc *users.Service,
+	groupsSvc *groups.Service,
+	settingsSvc *settings.Service,
+	logger *zap.Logger,
+) handler.Handler {
+	return &Settings{
+		BaseHandler: handler.BaseHandler{
+			Bot:    bot,
+			Logger: logger,
+		},
+
+		fsmService:  fsmService,
+		usersSvc:    usersSvc,
+		groupsSvc:   groupsSvc,
+		settingsSvc: settingsSvc,
+	}
+}
+
+func (s *Settings) Register(b *bot.Bot) {
+	// Register state-specific handlers
+	s.registerStateHandlers(b)
+
+	// Register callback handlers for settings flow
+	s.registerCallbackHandlers(b)
+}
+
+func (s *Settings) registerStateHandlers(b *bot.Bot) {
+	// Category selection handler
+	b.RegisterHandlerMatchFunc(
+		func(update *models.Update) bool {
+			return update.CallbackQuery != nil &&
+				strings.HasPrefix(update.CallbackQuery.Data, settingsCallbackCategory)
+		},
+		adaptor.New(s.handleCategorySelect),
+	)
+
+	// Setting list handler
+	b.RegisterHandlerMatchFunc(
+		func(update *models.Update) bool {
+			return update.CallbackQuery != nil &&
+				strings.HasPrefix(update.CallbackQuery.Data, settingsCallbackSetting)
+		},
+		adaptor.New(s.handleSettingSelect),
+	)
+
+	// Input handlers for different types
+	b.RegisterHandlerMatchFunc(
+		filter.And(
+			func(update *models.Update) bool { return update.Message != nil },
+			state.NewStateFilter(settingInputText, s.fsmService, s.Logger),
+		),
+		adaptor.New(s.handleTextInput),
+	)
+
+	b.RegisterHandlerMatchFunc(
+		filter.And(
+			func(update *models.Update) bool { return update.Message != nil },
+			state.NewStateFilter(settingInputNumber, s.fsmService, s.Logger),
+		),
+		adaptor.New(s.handleNumberInput),
+	)
+
+	b.RegisterHandlerMatchFunc(
+		func(update *models.Update) bool {
+			return update.CallbackQuery != nil && strings.HasPrefix(update.CallbackQuery.Data, settingInputBoolean)
+		},
+		adaptor.New(s.handleBooleanInput),
+	)
+
+	b.RegisterHandlerMatchFunc(
+		filter.And(
+			func(update *models.Update) bool { return update.Message != nil },
+			state.NewStateFilter(settingInputDuration, s.fsmService, s.Logger),
+		),
+		adaptor.New(s.handleDurationInput),
+	)
+}
+
+func (s *Settings) registerCallbackHandlers(b *bot.Bot) {
+	// Settings list
+	b.RegisterHandlerMatchFunc(
+		func(update *models.Update) bool {
+			return update.CallbackQuery != nil &&
+				strings.HasPrefix(update.CallbackQuery.Data, callbackListPrefix)
+		},
+		adaptor.New(s.handleSettingsList),
+	)
+}
+
+// Permission check
+
+func (s *Settings) checkAdminPermission(ctx *adaptor.Context, groupID int64) error {
+	user, err := ctx.User()
+	if err != nil {
+		return fmt.Errorf("failed to register user: %w", err)
+	}
+
+	isAdmin, err := s.groupsSvc.IsAdmin(ctx, groupID, user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to check admin status: %w", err)
+	}
+
+	if !isAdmin {
+		return fmt.Errorf("user is not group admin")
+	}
+
+	return nil
+}
+
+// Handler implementations
+
+func (s *Settings) handleSettingsList(ctx *adaptor.Context, update *models.Update) {
+	if update.CallbackQuery == nil {
+		return
+	}
+
+	// Parse group ID from callback data
+	callbackData := update.CallbackQuery.Data
+	if callbackData == "groups:edit_settings:" {
+		// Direct call, need to get group ID from state
+		state, err := ctx.State()
+		if err != nil {
+			// logger.Error("failed to get state", zap.Error(err))
+			s.HandleError(ctx, update, err)
+			return
+		}
+
+		groupIDStr := state.GetData(settingsDataGroupID)
+		if groupIDStr == "" {
+			s.SendReply(ctx, update, &bot.SendMessageParams{
+				Text: "❌ Missing group context. Please start from the groups menu.",
+			})
+			return
+		}
+
+		groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
+		if err != nil {
+			// logger.Error("failed to parse group ID", zap.Error(err))
+			s.HandleError(ctx, update, err)
+			return
+		}
+
+		s.showCategoriesList(ctx, update, groupID)
+		return
+	}
+
+	// Extract group ID from callback data
+	parts := strings.Split(callbackData, ":")
+	if len(parts) < 3 {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Invalid callback data format.",
+		})
+		return
+	}
+
+	groupID, err := strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		// logger.Error("failed to parse group ID", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	s.showCategoriesList(ctx, update, groupID)
+}
+
+func (s *Settings) showCategoriesList(ctx *adaptor.Context, update *models.Update, groupID int64) {
+	logger := s.WithContext(update)
+
+	// Check admin permission
+	if err := s.checkAdminPermission(ctx, groupID); err != nil {
+		logger.Warn("admin permission check failed", zap.Error(err))
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ You must be an admin of this group to edit settings.",
+		})
+		return
+	}
+
+	// Get group info
+	group, err := s.groupsSvc.GetByID(ctx, groupID)
+	if err != nil {
+		logger.Error("failed to get group", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	// Get available categories
+	categories := s.settingsSvc.ListCategories()
+	if len(categories) == 0 {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "⚙️ No settings categories available.",
+		})
+		return
+	}
+
+	// Build keyboard with categories
+	keyboard := categoriesKeyboard(categories)
+
+	// Update state
+	state, err := s.state(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	state.SetName(categoriesList)
+	state.SetGroupID(groupID)
+
+	// Send message
+	s.SendReply(ctx, update, &bot.SendMessageParams{
+		Text: fmt.Sprintf(`⚙️ *Settings Categories*
+
+📱 Group: %s
+
+Select a category to edit:`, bot.EscapeMarkdown(group.Title)),
+		ParseMode:   models.ParseModeMarkdown,
+		ReplyMarkup: keyboard,
+	})
+}
+
+func (s *Settings) getCategoryDisplayName(category string) string {
+	// Map technical category names to user-friendly display names
+	categoryMap := map[string]string{
+		"discussions":   "💬 Discussions",
+		"giveaways":     "🎯 Giveaways",
+		"moderation":    "🛡️ Moderation",
+		"notifications": "🔔 Notifications",
+		"general":       "⚙️ General",
+	}
+
+	if display, exists := categoryMap[category]; exists {
+		return display
+	}
+
+	// Fallback to title case
+	return strings.Title(category)
+}
+
+func (s *Settings) handleCategorySelect(ctx *adaptor.Context, update *models.Update) {
+	logger := s.WithContext(update)
+
+	if update.CallbackQuery == nil {
+		return
+	}
+
+	// Extract category from callback data
+	category := strings.TrimPrefix(update.CallbackQuery.Data, settingsCallbackCategory)
+	if category == "" {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Invalid category selection.",
+		})
+		return
+	}
+
+	// Get current state
+	state, err := s.state(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	groupID := state.GroupID()
+	if groupID == 0 {
+		logger.Error("failed to parse group ID", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	s.showSettingsList(ctx, update, groupID, category)
+}
+
+func (s *Settings) showSettingsList(ctx *adaptor.Context, update *models.Update, groupID int64, category string) {
+	logger := s.WithContext(update)
+
+	// Check admin permission
+	if err := s.checkAdminPermission(ctx, groupID); err != nil {
+		logger.Warn("admin permission check failed", zap.Error(err))
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ You must be an admin of this group to edit settings.",
+		})
+		return
+	}
+
+	// Get settings for category
+	settingsList := s.settingsSvc.ListSettingsByCategory(category)
+	if len(settingsList) == 0 {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: fmt.Sprintf("❌ No settings found in category: %s", category),
+		})
+		return
+	}
+
+	// Get current values
+	currentValues, _, err := s.settingsSvc.GetAllSettings(ctx, groupID)
+	if err != nil {
+		logger.Error("failed to get current settings", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	// Build keyboard with settings
+	keyboard := settingsKeyboard(groupID, settingsList, currentValues)
+
+	// Update state
+	state, err := s.state(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	state.SetName(settingList)
+	state.SetCategory(category)
+
+	// Send message
+	s.SendReply(ctx, update, &bot.SendMessageParams{
+		Text: fmt.Sprintf(`⚙️ *%s Settings*
+
+Select a setting to edit:`, bot.EscapeMarkdown(s.getCategoryDisplayName(category))),
+		ParseMode:   models.ParseModeMarkdown,
+		ReplyMarkup: keyboard,
+	})
+}
+
+func (s *Settings) handleSettingSelect(ctx *adaptor.Context, update *models.Update) {
+	logger := s.WithContext(update)
+
+	if update.CallbackQuery == nil {
+		return
+	}
+
+	settingKey := strings.TrimPrefix(update.CallbackQuery.Data, settingsCallbackSetting)
+	if settingKey == "" {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Invalid setting selection.",
+		})
+		return
+	}
+
+	// Get current state
+	state, err := s.state(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	groupID := state.GroupID()
+	if groupID == 0 {
+		logger.Error("failed to parse group ID", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	s.showSettingEdit(ctx, update, groupID, settingKey)
+}
+
+func (s *Settings) showSettingEdit(
+	ctx *adaptor.Context,
+	update *models.Update,
+	groupID int64,
+	settingKey string,
+) {
+	logger := s.WithContext(update)
+
+	// Check admin permission
+	if err := s.checkAdminPermission(ctx, groupID); err != nil {
+		logger.Warn("admin permission check failed", zap.Error(err))
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ You must be an admin of this group to edit settings.",
+		})
+		return
+	}
+
+	// Get setting definition
+	setting, exists := s.settingsSvc.GetSettingDefinition(settingKey)
+	if !exists {
+		logger.Error("setting definition not found", zap.String("key", settingKey))
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Setting not found.",
+		})
+		return
+	}
+
+	// Get current value
+	currentValue, _, err := s.settingsSvc.GetSetting(ctx, groupID, settingKey)
+	if err != nil {
+		logger.Error("failed to get current setting value", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	// Build prompt message
+	promptMessage := fmt.Sprintf("✏️ *Edit Setting: %s*\n\n%s\nCurrent value: %s\n\nEnter the new value:",
+		bot.EscapeMarkdown(setting.Label),
+		bot.EscapeMarkdown(setting.Description),
+		bot.EscapeMarkdown(fmt.Sprintf("%q", currentValue)),
+	)
+
+	// Update state
+	state, err := s.state(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	state.SetName(settingInputPrefix + string(setting.Type))
+	state.SetSetting(settingKey)
+
+	// Send message
+	s.SendReply(ctx, update, &bot.SendMessageParams{
+		Text:        promptMessage,
+		ParseMode:   models.ParseModeMarkdown,
+		ReplyMarkup: editKeyboard(setting, currentValue),
+	})
+}
+
+func (s *Settings) handleTextInput(ctx *adaptor.Context, update *models.Update) {
+	if update.Message == nil || update.Message.Text == "" {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Please enter a valid text.",
+		})
+		return
+	}
+
+	s.processSettingInput(ctx, update, update.Message.Text)
+}
+
+func (s *Settings) handleNumberInput(ctx *adaptor.Context, update *models.Update) {
+	if update.Message == nil || update.Message.Text == "" {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Please enter a valid number.",
+		})
+		return
+	}
+
+	s.processSettingInput(ctx, update, update.Message.Text)
+}
+
+func (s *Settings) handleBooleanInput(ctx *adaptor.Context, update *models.Update) {
+	if update.CallbackQuery == nil {
+		return
+	}
+
+	// Extract boolean value from callback data
+	// Callback data format: "settings:boolean:<true|false>:<setting_key>"
+	parts := strings.Split(update.CallbackQuery.Data, ":")
+	if len(parts) < 4 {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Invalid boolean callback data format.",
+		})
+		return
+	}
+
+	boolValueStr := parts[3]
+	boolValue, err := strconv.ParseBool(boolValueStr)
+	if err != nil {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Invalid boolean value in callback data.",
+		})
+		return
+	}
+
+	s.processSettingInput(ctx, update, strconv.FormatBool(boolValue))
+}
+
+func (s *Settings) handleDurationInput(ctx *adaptor.Context, update *models.Update) {
+	if update.Message == nil || update.Message.Text == "" {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Please enter a valid duration.",
+		})
+		return
+	}
+
+	s.processSettingInput(ctx, update, update.Message.Text)
+}
+
+func (s *Settings) processSettingInput(ctx *adaptor.Context, update *models.Update, inputValue string) {
+	logger := s.WithContext(update)
+
+	// Get current state
+	state, err := s.state(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	groupID := state.GroupID()
+	if groupID == 0 {
+		logger.Error("failed to parse group ID", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	category := state.Category()
+	if category == "" {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Missing category context. Please go back to the categories menu.",
+		})
+		return
+	}
+
+	settingKey := state.Setting()
+	if settingKey == "" {
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Missing setting key. Please select a setting to edit.",
+		})
+		return
+	}
+
+	// Validate input
+	if err := s.settingsSvc.ValidateSettingValue(settingKey, inputValue); err != nil {
+		logger.Warn("invalid setting value", zap.Error(err))
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: fmt.Sprintf("❌ Invalid input: %s", err.Error()),
+		})
+		return
+	}
+
+	// Save setting
+	if err := s.settingsSvc.SetSetting(ctx, groupID, settingKey, inputValue); err != nil {
+		logger.Error("failed to save setting", zap.Error(err))
+		s.HandleError(ctx, update, err)
+		return
+	}
+
+	// Show confirmation and updated setting
+	s.SendReply(ctx, update, &bot.SendMessageParams{
+		Text: "✅ Setting saved successfully!",
+	})
+
+	// Show updated setting
+	s.showSettingsList(ctx, update, groupID, category)
+}
+
+func (s *Settings) state(ctx *adaptor.Context) (*internalState, error) {
+	state, err := ctx.State()
+	if err != nil {
+		return nil, err
+	}
+	return newInternalState(state), nil
+}

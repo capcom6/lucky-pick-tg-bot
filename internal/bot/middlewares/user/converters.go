@@ -1,4 +1,4 @@
-package handlers
+package user
 
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"

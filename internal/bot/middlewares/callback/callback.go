@@ -19,6 +19,15 @@ func NewMiddleware(logger *zap.Logger) bot.Middleware {
 				}); err != nil {
 					logger.Error("failed to answer callback query", zap.Error(err))
 				}
+
+				if update.CallbackQuery.Message.Message != nil {
+					if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{
+						ChatID:    update.CallbackQuery.Message.Message.Chat.ID,
+						MessageID: update.CallbackQuery.Message.Message.ID,
+					}); err != nil {
+						logger.Error("failed to delete message", zap.Error(err))
+					}
+				}
 			}
 		}
 	}

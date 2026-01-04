@@ -72,6 +72,21 @@ func (s *Service) GetByID(ctx context.Context, groupID int64) (*GroupWithSetting
 	return s.groups.GetByID(ctx, groupID)
 }
 
+// GetAllSettings returns all settings for a group.
+func (s *Service) GetAllSettings(ctx context.Context, groupID int64) (map[string]string, error) {
+	return s.groups.GetAllSettings(ctx, groupID)
+}
+
+// GetSetting returns a single setting value for a group.
+func (s *Service) GetSetting(ctx context.Context, groupID int64, key string) (string, error) {
+	settings, err := s.GetAllSettings(ctx, groupID)
+	if err != nil {
+		return "", err
+	}
+
+	return settings[key], nil
+}
+
 // UpdateSettings updates the settings of a group.
 func (s *Service) UpdateSettings(ctx context.Context, groupID int64, settings map[string]string) error {
 	if len(settings) == 0 {
@@ -79,4 +94,14 @@ func (s *Service) UpdateSettings(ctx context.Context, groupID int64, settings ma
 	}
 
 	return s.groups.UpdateSettings(ctx, groupID, settings)
+}
+
+// UpdateSetting updates a single setting for a group.
+func (s *Service) UpdateSetting(ctx context.Context, groupID int64, key, value string) error {
+	return s.UpdateSettings(ctx, groupID, map[string]string{key: value})
+}
+
+// DeleteSetting deletes a single setting for a group.
+func (s *Service) DeleteSetting(ctx context.Context, groupID int64, key string) error {
+	return s.groups.DeleteSetting(ctx, groupID, key)
 }

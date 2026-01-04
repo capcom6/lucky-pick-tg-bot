@@ -36,3 +36,17 @@ func From(update *models.Update) int64 {
 	}
 	return UserID(update)
 }
+
+func User(update *models.Update) *models.User {
+	if update == nil {
+		return nil
+	}
+
+	if update.Message != nil && update.Message.From != nil {
+		return update.Message.From
+	}
+	if update.CallbackQuery != nil {
+		return &update.CallbackQuery.From
+	}
+	return nil
+}
