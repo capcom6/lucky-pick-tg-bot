@@ -34,6 +34,11 @@ func (r *SettingRegistry) ListSettingsByCategory(category string) []SettingDefin
 			result = append(result, setting)
 		}
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Key < result[j].Key
+	})
+
 	return result
 }
 

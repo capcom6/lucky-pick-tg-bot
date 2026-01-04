@@ -77,15 +77,14 @@ func settingsKeyboard(
 // editKeyboard creates keyboard for editing a specific setting.
 func editKeyboard(
 	setting settings.SettingDefinition,
-	currentValue any,
+	currentValue string,
 ) *models.InlineKeyboardMarkup {
 	var keyboard [][]models.InlineKeyboardButton
 
 	switch setting.Type {
 	case settings.Boolean:
 		// For boolean, show toggle buttons
-		currentBool, _ := currentValue.(bool)
-		keyboard = buildBooleanToggleKeyboard(currentBool)
+		keyboard = buildBooleanToggleKeyboard(currentValue)
 	case settings.Duration, settings.Number, settings.Text:
 		// For other types, show edit button
 		keyboard = [][]models.InlineKeyboardButton{}
@@ -96,10 +95,10 @@ func editKeyboard(
 	}
 }
 
-func buildBooleanToggleKeyboard(currentBool bool) [][]models.InlineKeyboardButton {
+func buildBooleanToggleKeyboard(currentBool string) [][]models.InlineKeyboardButton {
 	trueText := "True"
 	falseText := "False"
-	if currentBool {
+	if v, err := strconv.ParseBool(currentBool); err == nil && v {
 		trueText = "✅ True (current)"
 	} else {
 		falseText = "❌ False (current)"

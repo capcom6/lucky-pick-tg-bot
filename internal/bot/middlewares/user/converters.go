@@ -6,6 +6,10 @@ import (
 )
 
 func ToDomain(user *models.User) users.UserIn {
+	if user == nil {
+		return users.UserIn{}
+	}
+
 	return users.UserIn{
 		TelegramUserID: user.ID,
 		Username:       user.Username,

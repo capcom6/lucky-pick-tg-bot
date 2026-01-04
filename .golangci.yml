@@ -464,8 +464,6 @@ linters:
     rules:
       - source: "TODO"
         linters: [godot]
-      - text: 'shadow: declaration of "err" shadows declaration'
-        linters: [govet]
       - text: "should have a package comment"
         linters: [revive]
       - text: "avoid meaningless package names"

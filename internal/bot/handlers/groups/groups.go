@@ -137,7 +137,7 @@ func (h *Handler) handleGroupsCommand(ctx *adaptor.Context, update *models.Updat
 	// Register or get user
 	user, err := ctx.User()
 	if err != nil {
-		logger.Error("failed to register user", zap.Error(err))
+		logger.Error("failed to get user", zap.Error(err))
 		h.SendReply(
 			ctx,
 			update,
@@ -206,7 +206,8 @@ func (h *Handler) handleGroupSelection(ctx context.Context, _ *bot.Bot, update *
 		return
 	}
 
-	groupID, err := strconv.ParseInt(update.CallbackQuery.Data[len(groupsSelectionCallback):], 10, 64)
+	groupIDStr := strings.TrimPrefix(update.CallbackQuery.Data, groupsSelectionCallback)
+	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
 	if err != nil {
 		logger.Error("failed to parse group ID", zap.Error(err))
 		return

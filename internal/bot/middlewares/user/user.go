@@ -31,7 +31,7 @@ func NewMiddleware(usersSvc *users.Service, logger *zap.Logger) bot.Middleware {
 
 			user, err := usersSvc.RegisterUser(ctx, ToDomain(tgUser))
 			if err != nil {
-				logger.Error("get user", zap.Error(err))
+				logger.Error("register user", zap.Error(err))
 				return
 			}
 

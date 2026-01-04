@@ -146,37 +146,8 @@ func (s *Settings) handleSettingsList(ctx *adaptor.Context, update *models.Updat
 		return
 	}
 
-	// Parse group ID from callback data
-	callbackData := update.CallbackQuery.Data
-	if callbackData == "groups:edit_settings:" {
-		// Direct call, need to get group ID from state
-		state, err := ctx.State()
-		if err != nil {
-			// logger.Error("failed to get state", zap.Error(err))
-			s.HandleError(ctx, update, err)
-			return
-		}
-
-		groupIDStr := state.GetData(settingsDataGroupID)
-		if groupIDStr == "" {
-			s.SendReply(ctx, update, &bot.SendMessageParams{
-				Text: "❌ Missing group context. Please start from the groups menu.",
-			})
-			return
-		}
-
-		groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
-		if err != nil {
-			// logger.Error("failed to parse group ID", zap.Error(err))
-			s.HandleError(ctx, update, err)
-			return
-		}
-
-		s.showCategoriesList(ctx, update, groupID)
-		return
-	}
-
 	// Extract group ID from callback data
+	callbackData := update.CallbackQuery.Data
 	groupIDStr := strings.TrimPrefix(callbackData, callbackGroupPrefix)
 	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
 	if err != nil {
@@ -513,18 +484,18 @@ func (s *Settings) processSettingInput(ctx *adaptor.Context, update *models.Upda
 	}
 
 	// Validate input
-	if err := s.settingsSvc.ValidateSetting(settingKey, inputValue); err != nil {
-		logger.Warn("invalid setting value", zap.Error(err))
+	if validErr := s.settingsSvc.ValidateSetting(settingKey, inputValue); validErr != nil {
+		logger.Warn("invalid setting value", zap.Error(validErr))
 		s.SendReply(ctx, update, &bot.SendMessageParams{
-			Text: fmt.Sprintf("❌ Invalid input: %s", err.Error()),
+			Text: fmt.Sprintf("❌ Invalid input: %s", validErr.Error()),
 		})
 		return
 	}
 
 	// Save setting
-	if err := s.settingsSvc.UpdateSetting(ctx, groupID, settingKey, inputValue); err != nil {
-		logger.Error("failed to save setting", zap.Error(err))
-		s.HandleError(ctx, update, err)
+	if updErr := s.settingsSvc.UpdateSetting(ctx, groupID, settingKey, inputValue); updErr != nil {
+		logger.Error("failed to save setting", zap.Error(updErr))
+		s.HandleError(ctx, update, updErr)
 		return
 	}
 

@@ -27,8 +27,9 @@ func NewSettings(settings map[string]string) (Settings, error) {
 }
 
 func DefaultSettings() Settings {
+	//nolint:mnd //default values
 	return Settings{
-		Delay: 0,
+		Delay: time.Hour * 6,
 	}
 }
 

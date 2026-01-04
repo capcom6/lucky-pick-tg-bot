@@ -234,6 +234,9 @@ func ParseDuration(s string) (DurationValue, error) {
 	if err != nil {
 		return DurationValue{}, fmt.Errorf("%w: invalid hours: %w", ErrValidationFailed, err)
 	}
+	if hours < 0 {
+		return DurationValue{}, fmt.Errorf("%w: hours must be non-negative", ErrValidationFailed)
+	}
 
 	minutes, err := strconv.Atoi(parts[1])
 	if err != nil {
