@@ -2,6 +2,7 @@ package adaptor
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/middlewares/state"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/middlewares/user"
@@ -16,15 +17,25 @@ type Context struct {
 }
 
 func (c *Context) User() (*users.User, error) {
-	return user.FromContext(c.Context)
+	u, err := user.FromContext(c.Context)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return u, nil
 }
 
 func (c *Context) State() (*fsm.State, error) {
-	return state.FromContext(c.Context)
+	s, err := state.FromContext(c.Context)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get state: %w", err)
+	}
+
+	return s, nil
 }
 
 func New(h func(*Context, *models.Update)) bot.HandlerFunc {
-	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
+	return func(ctx context.Context, _ *bot.Bot, update *models.Update) {
 		h(&Context{Context: ctx}, update)
 	}
 }

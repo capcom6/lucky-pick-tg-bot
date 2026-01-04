@@ -62,7 +62,7 @@ func (s *Settings) registerStateHandlers(b *bot.Bot) {
 	b.RegisterHandlerMatchFunc(
 		func(update *models.Update) bool {
 			return update.CallbackQuery != nil &&
-				strings.HasPrefix(update.CallbackQuery.Data, settingsCallbackCategory)
+				strings.HasPrefix(update.CallbackQuery.Data, callbackCategoryPrefix)
 		},
 		adaptor.New(s.handleCategorySelect),
 	)
@@ -71,7 +71,7 @@ func (s *Settings) registerStateHandlers(b *bot.Bot) {
 	b.RegisterHandlerMatchFunc(
 		func(update *models.Update) bool {
 			return update.CallbackQuery != nil &&
-				strings.HasPrefix(update.CallbackQuery.Data, settingsCallbackSetting)
+				strings.HasPrefix(update.CallbackQuery.Data, callbackSettingPrefix)
 		},
 		adaptor.New(s.handleSettingSelect),
 	)
@@ -95,7 +95,8 @@ func (s *Settings) registerStateHandlers(b *bot.Bot) {
 
 	b.RegisterHandlerMatchFunc(
 		func(update *models.Update) bool {
-			return update.CallbackQuery != nil && strings.HasPrefix(update.CallbackQuery.Data, settingInputBoolean)
+			return update.CallbackQuery != nil &&
+				strings.HasPrefix(update.CallbackQuery.Data, callbackInputBooleanPrefix)
 		},
 		adaptor.New(s.handleBooleanInput),
 	)
@@ -114,7 +115,7 @@ func (s *Settings) registerCallbackHandlers(b *bot.Bot) {
 	b.RegisterHandlerMatchFunc(
 		func(update *models.Update) bool {
 			return update.CallbackQuery != nil &&
-				strings.HasPrefix(update.CallbackQuery.Data, callbackListPrefix)
+				strings.HasPrefix(update.CallbackQuery.Data, callbackGroupPrefix)
 		},
 		adaptor.New(s.handleSettingsList),
 	)
@@ -122,22 +123,20 @@ func (s *Settings) registerCallbackHandlers(b *bot.Bot) {
 
 // Permission check
 
-func (s *Settings) checkAdminPermission(ctx *adaptor.Context, groupID int64) error {
+func (s *Settings) checkAdminPermission(ctx *adaptor.Context, groupID int64) bool {
 	user, err := ctx.User()
 	if err != nil {
-		return fmt.Errorf("failed to register user: %w", err)
+		s.Logger.Error("failed to get user", zap.Error(err))
+		return false
 	}
 
 	isAdmin, err := s.groupsSvc.IsAdmin(ctx, groupID, user.ID)
 	if err != nil {
-		return fmt.Errorf("failed to check admin status: %w", err)
+		s.Logger.Error("failed to check if user is group admin", zap.Error(err))
+		return false
 	}
 
-	if !isAdmin {
-		return fmt.Errorf("user is not group admin")
-	}
-
-	return nil
+	return isAdmin
 }
 
 // Handler implementations
@@ -178,15 +177,8 @@ func (s *Settings) handleSettingsList(ctx *adaptor.Context, update *models.Updat
 	}
 
 	// Extract group ID from callback data
-	parts := strings.Split(callbackData, ":")
-	if len(parts) < 3 {
-		s.SendReply(ctx, update, &bot.SendMessageParams{
-			Text: "❌ Invalid callback data format.",
-		})
-		return
-	}
-
-	groupID, err := strconv.ParseInt(parts[2], 10, 64)
+	groupIDStr := strings.TrimPrefix(callbackData, callbackGroupPrefix)
+	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
 	if err != nil {
 		// logger.Error("failed to parse group ID", zap.Error(err))
 		s.HandleError(ctx, update, err)
@@ -200,8 +192,7 @@ func (s *Settings) showCategoriesList(ctx *adaptor.Context, update *models.Updat
 	logger := s.WithContext(update)
 
 	// Check admin permission
-	if err := s.checkAdminPermission(ctx, groupID); err != nil {
-		logger.Warn("admin permission check failed", zap.Error(err))
+	if !s.checkAdminPermission(ctx, groupID) {
 		s.SendReply(ctx, update, &bot.SendMessageParams{
 			Text: "❌ You must be an admin of this group to edit settings.",
 		})
@@ -251,24 +242,6 @@ Select a category to edit:`, bot.EscapeMarkdown(group.Title)),
 	})
 }
 
-func (s *Settings) getCategoryDisplayName(category string) string {
-	// Map technical category names to user-friendly display names
-	categoryMap := map[string]string{
-		"discussions":   "💬 Discussions",
-		"giveaways":     "🎯 Giveaways",
-		"moderation":    "🛡️ Moderation",
-		"notifications": "🔔 Notifications",
-		"general":       "⚙️ General",
-	}
-
-	if display, exists := categoryMap[category]; exists {
-		return display
-	}
-
-	// Fallback to title case
-	return strings.Title(category)
-}
-
 func (s *Settings) handleCategorySelect(ctx *adaptor.Context, update *models.Update) {
 	logger := s.WithContext(update)
 
@@ -277,7 +250,7 @@ func (s *Settings) handleCategorySelect(ctx *adaptor.Context, update *models.Upd
 	}
 
 	// Extract category from callback data
-	category := strings.TrimPrefix(update.CallbackQuery.Data, settingsCallbackCategory)
+	category := strings.TrimPrefix(update.CallbackQuery.Data, callbackCategoryPrefix)
 	if category == "" {
 		s.SendReply(ctx, update, &bot.SendMessageParams{
 			Text: "❌ Invalid category selection.",
@@ -295,8 +268,10 @@ func (s *Settings) handleCategorySelect(ctx *adaptor.Context, update *models.Upd
 
 	groupID := state.GroupID()
 	if groupID == 0 {
-		logger.Error("failed to parse group ID", zap.Error(err))
-		s.HandleError(ctx, update, err)
+		logger.Error("missing group ID in state")
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Missing group context. Please start from the groups menu.",
+		})
 		return
 	}
 
@@ -307,8 +282,7 @@ func (s *Settings) showSettingsList(ctx *adaptor.Context, update *models.Update,
 	logger := s.WithContext(update)
 
 	// Check admin permission
-	if err := s.checkAdminPermission(ctx, groupID); err != nil {
-		logger.Warn("admin permission check failed", zap.Error(err))
+	if !s.checkAdminPermission(ctx, groupID) {
 		s.SendReply(ctx, update, &bot.SendMessageParams{
 			Text: "❌ You must be an admin of this group to edit settings.",
 		})
@@ -350,7 +324,7 @@ func (s *Settings) showSettingsList(ctx *adaptor.Context, update *models.Update,
 	s.SendReply(ctx, update, &bot.SendMessageParams{
 		Text: fmt.Sprintf(`⚙️ *%s Settings*
 
-Select a setting to edit:`, bot.EscapeMarkdown(s.getCategoryDisplayName(category))),
+Select a setting to edit:`, bot.EscapeMarkdown(category)),
 		ParseMode:   models.ParseModeMarkdown,
 		ReplyMarkup: keyboard,
 	})
@@ -363,7 +337,7 @@ func (s *Settings) handleSettingSelect(ctx *adaptor.Context, update *models.Upda
 		return
 	}
 
-	settingKey := strings.TrimPrefix(update.CallbackQuery.Data, settingsCallbackSetting)
+	settingKey := strings.TrimPrefix(update.CallbackQuery.Data, callbackSettingPrefix)
 	if settingKey == "" {
 		s.SendReply(ctx, update, &bot.SendMessageParams{
 			Text: "❌ Invalid setting selection.",
@@ -381,8 +355,10 @@ func (s *Settings) handleSettingSelect(ctx *adaptor.Context, update *models.Upda
 
 	groupID := state.GroupID()
 	if groupID == 0 {
-		logger.Error("failed to parse group ID", zap.Error(err))
-		s.HandleError(ctx, update, err)
+		logger.Error("missing group ID in state")
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Missing group context. Please start from the groups menu.",
+		})
 		return
 	}
 
@@ -398,8 +374,7 @@ func (s *Settings) showSettingEdit(
 	logger := s.WithContext(update)
 
 	// Check admin permission
-	if err := s.checkAdminPermission(ctx, groupID); err != nil {
-		logger.Warn("admin permission check failed", zap.Error(err))
+	if !s.checkAdminPermission(ctx, groupID) {
 		s.SendReply(ctx, update, &bot.SendMessageParams{
 			Text: "❌ You must be an admin of this group to edit settings.",
 		})
@@ -478,16 +453,7 @@ func (s *Settings) handleBooleanInput(ctx *adaptor.Context, update *models.Updat
 	}
 
 	// Extract boolean value from callback data
-	// Callback data format: "settings:boolean:<true|false>:<setting_key>"
-	parts := strings.Split(update.CallbackQuery.Data, ":")
-	if len(parts) < 4 {
-		s.SendReply(ctx, update, &bot.SendMessageParams{
-			Text: "❌ Invalid boolean callback data format.",
-		})
-		return
-	}
-
-	boolValueStr := parts[3]
+	boolValueStr := strings.TrimPrefix(update.CallbackQuery.Data, callbackInputBooleanPrefix)
 	boolValue, err := strconv.ParseBool(boolValueStr)
 	if err != nil {
 		s.SendReply(ctx, update, &bot.SendMessageParams{
@@ -523,8 +489,10 @@ func (s *Settings) processSettingInput(ctx *adaptor.Context, update *models.Upda
 
 	groupID := state.GroupID()
 	if groupID == 0 {
-		logger.Error("failed to parse group ID", zap.Error(err))
-		s.HandleError(ctx, update, err)
+		logger.Error("missing group ID in state")
+		s.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "❌ Missing group context. Please start from the groups menu.",
+		})
 		return
 	}
 
@@ -545,7 +513,7 @@ func (s *Settings) processSettingInput(ctx *adaptor.Context, update *models.Upda
 	}
 
 	// Validate input
-	if err := s.settingsSvc.ValidateSettingValue(settingKey, inputValue); err != nil {
+	if err := s.settingsSvc.ValidateSetting(settingKey, inputValue); err != nil {
 		logger.Warn("invalid setting value", zap.Error(err))
 		s.SendReply(ctx, update, &bot.SendMessageParams{
 			Text: fmt.Sprintf("❌ Invalid input: %s", err.Error()),
@@ -554,7 +522,7 @@ func (s *Settings) processSettingInput(ctx *adaptor.Context, update *models.Upda
 	}
 
 	// Save setting
-	if err := s.settingsSvc.SetSetting(ctx, groupID, settingKey, inputValue); err != nil {
+	if err := s.settingsSvc.UpdateSetting(ctx, groupID, settingKey, inputValue); err != nil {
 		logger.Error("failed to save setting", zap.Error(err))
 		s.HandleError(ctx, update, err)
 		return
@@ -572,7 +540,7 @@ func (s *Settings) processSettingInput(ctx *adaptor.Context, update *models.Upda
 func (s *Settings) state(ctx *adaptor.Context) (*internalState, error) {
 	state, err := ctx.State()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get state: %w", err)
 	}
 	return newInternalState(state), nil
 }

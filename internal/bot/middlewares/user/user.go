@@ -29,7 +29,7 @@ func NewMiddleware(usersSvc *users.Service, logger *zap.Logger) bot.Middleware {
 				return
 			}
 
-			user, err := usersSvc.RegisterUser(ctx, UserToDomain(tgUser))
+			user, err := usersSvc.RegisterUser(ctx, ToDomain(tgUser))
 			if err != nil {
 				logger.Error("get user", zap.Error(err))
 				return
@@ -55,7 +55,13 @@ func WithUser(h func(ctx context.Context, user *users.User, update *models.Updat
 	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
 		user, err := FromContext(ctx)
 		if err != nil {
-			b.SendMessage(ctx, &bot.SendMessageParams{ChatID: extractors.ChatID(update), Text: "❌ Failed to process user. Please try again."})
+			_, _ = b.SendMessage(
+				ctx,
+				&bot.SendMessageParams{
+					ChatID: extractors.ChatID(update),
+					Text:   "❌ Failed to process user. Please try again.",
+				},
+			)
 			return
 		}
 

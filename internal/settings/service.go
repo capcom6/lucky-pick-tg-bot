@@ -27,17 +27,17 @@ func (s *Service) RegisterDefinition(def SettingDefinition) {
 
 // GetSetting retrieves a setting value for a group with proper type conversion.
 // Returns the converted value and whether the setting exists.
-func (s *Service) GetSetting(ctx context.Context, groupID int64, key string) (interface{}, bool, error) {
+func (s *Service) GetSetting(ctx context.Context, groupID int64, key string) (string, bool, error) {
 	// Get setting definition to know the type
 	def, exists := s.registry.GetSetting(key)
 	if !exists {
-		return nil, false, fmt.Errorf("unknown setting key: %s", key)
+		return "", false, fmt.Errorf("%w: %s", ErrKeyNotFound, key)
 	}
 
 	// Get raw string value from repository
 	rawValue, err := s.groupsSvc.GetSetting(ctx, groupID, key)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to get setting %s: %w", key, err)
+		return "", false, fmt.Errorf("failed to get setting %s: %w", key, err)
 	}
 
 	// If no value is set, return default value
@@ -45,25 +45,19 @@ func (s *Service) GetSetting(ctx context.Context, groupID int64, key string) (in
 		return def.DefaultValue, false, nil
 	}
 
-	// Convert to proper type
-	converted, err := ConvertValue(rawValue, def)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to convert setting %s value: %w", key, err)
-	}
-
-	return converted, true, nil
+	return rawValue, true, nil
 }
 
 // GetAllSettings retrieves all settings for a group with proper type conversion.
 // Returns a map of setting keys to converted values, plus a map of which settings have custom values.
-func (s *Service) GetAllSettings(ctx context.Context, groupID int64) (map[string]interface{}, map[string]bool, error) {
+func (s *Service) GetAllSettings(ctx context.Context, groupID int64) (map[string]string, map[string]bool, error) {
 	// Get all raw settings from repository
 	rawSettings, err := s.groupsSvc.GetAllSettings(ctx, groupID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get all settings: %w", err)
 	}
 
-	result := make(map[string]interface{})
+	result := make(map[string]string)
 	hasCustomValue := make(map[string]bool)
 
 	// Convert each setting
@@ -78,11 +72,7 @@ func (s *Service) GetAllSettings(ctx context.Context, groupID int64) (map[string
 			result[key] = def.DefaultValue
 			hasCustomValue[key] = false
 		} else {
-			converted, err := ConvertValue(rawValue, def)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to convert setting %s: %w", key, err)
-			}
-			result[key] = converted
+			result[key] = rawValue
 			hasCustomValue[key] = true
 		}
 	}
@@ -99,43 +89,20 @@ func (s *Service) GetAllSettings(ctx context.Context, groupID int64) (map[string
 }
 
 // UpdateSetting updates a single setting for a group with validation.
-func (s *Service) UpdateSetting(ctx context.Context, groupID int64, userID int64, key string, value interface{}) error {
+func (s *Service) UpdateSetting(ctx context.Context, groupID int64, key string, value string) error {
 	// Validate the setting exists
 	def, exists := s.registry.GetSetting(key)
 	if !exists {
-		return fmt.Errorf("unknown setting key: %s", key)
+		return fmt.Errorf("%w: %s", ErrKeyNotFound, key)
 	}
 
 	// Validate the value
-	if err := validateValue(value, def); err != nil {
+	if err := def.Validate(value); err != nil {
 		return fmt.Errorf("invalid setting value: %w", err)
 	}
 
-	// Convert value to string for storage
-	var stringValue string
-	if value != nil {
-		switch v := value.(type) {
-		case string:
-			stringValue = v
-		case bool:
-			if v {
-				stringValue = "true"
-			} else {
-				stringValue = "false"
-			}
-		case int, int32, int64:
-			stringValue = fmt.Sprintf("%d", v)
-		case float32, float64:
-			stringValue = fmt.Sprintf("%g", v)
-		case DurationValue:
-			stringValue = v.String()
-		default:
-			return fmt.Errorf("unsupported value type: %T", v)
-		}
-	}
-
 	// Update in repository
-	if err := s.groupsSvc.UpdateSetting(ctx, groupID, key, stringValue); err != nil {
+	if err := s.groupsSvc.UpdateSetting(ctx, groupID, key, value); err != nil {
 		return fmt.Errorf("failed to update setting %s: %w", key, err)
 	}
 
@@ -145,80 +112,14 @@ func (s *Service) UpdateSetting(ctx context.Context, groupID int64, userID int64
 	return nil
 }
 
-// UpdateSettings updates multiple settings for a group at once with validation.
-func (s *Service) UpdateSettings(
-	ctx context.Context,
-	groupID int64,
-	userID int64,
-	settings map[string]interface{},
-) error {
-	// Validate all settings first
-	validatedSettings := make(map[string]string)
-
-	for key, value := range settings {
-		// Validate setting exists
-		def, exists := s.registry.GetSetting(key)
-		if !exists {
-			return fmt.Errorf("unknown setting key: %s", key)
-		}
-
-		// Validate value
-		if err := validateValue(value, def); err != nil {
-			return fmt.Errorf("invalid setting %s value: %w", key, err)
-		}
-
-		// Convert to string
-		var stringValue string
-		if value != nil {
-			switch v := value.(type) {
-			case string:
-				stringValue = v
-			case bool:
-				if v {
-					stringValue = "true"
-				} else {
-					stringValue = "false"
-				}
-			case int, int32, int64:
-				stringValue = fmt.Sprintf("%d", v)
-			case float32, float64:
-				stringValue = fmt.Sprintf("%g", v)
-			case DurationValue:
-				stringValue = v.String()
-			default:
-				return fmt.Errorf("unsupported value type for %s: %T", key, v)
-			}
-		}
-
-		validatedSettings[key] = stringValue
-	}
-
-	// Update all settings in repository
-	if err := s.groupsSvc.UpdateSettings(ctx, groupID, validatedSettings); err != nil {
-		return fmt.Errorf("failed to update settings: %w", err)
-	}
-
-	return nil
-}
-
 // ValidateSetting validates a setting value without updating.
-func (s *Service) ValidateSetting(key string, value interface{}) error {
+func (s *Service) ValidateSetting(key string, value string) error {
 	def, exists := s.registry.GetSetting(key)
 	if !exists {
-		return fmt.Errorf("unknown setting key: %s", key)
+		return fmt.Errorf("%w: %s", ErrKeyNotFound, key)
 	}
 
-	return validateValue(value, def)
-}
-
-// ValidateSettingValue validates a setting value (alias for ValidateSetting).
-func (s *Service) ValidateSettingValue(key string, value interface{}) error {
-	return s.ValidateSetting(key, value)
-}
-
-// SetSetting sets a setting value for a group (alias for UpdateSetting without userID).
-func (s *Service) SetSetting(ctx context.Context, groupID int64, key string, value interface{}) error {
-	return s.UpdateSetting(ctx, groupID, 0, key, value)
+	return def.Validate(value)
 }
 
 // GetSettingDefinition returns the definition of a setting.

@@ -2,12 +2,13 @@ package settings
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// SettingType represents the type of a setting value
+// SettingType represents the type of a setting value.
 type SettingType string
 
 const (
@@ -17,7 +18,7 @@ const (
 	Duration SettingType = "duration"
 )
 
-// SettingDefinition defines a group setting with all its metadata
+// SettingDefinition defines a group setting with all its metadata.
 type SettingDefinition struct {
 	// Key is the unique identifier for the setting (e.g., "discussions.delay")
 	Key string `json:"key"`
@@ -30,14 +31,51 @@ type SettingDefinition struct {
 	// Type determines how the setting value is validated and displayed
 	Type SettingType `json:"type"`
 	// DefaultValue is the value used when no custom value is set
-	DefaultValue interface{} `json:"default_value"`
+	DefaultValue string `json:"default_value"`
 	// Validation contains rules for validating setting values
 	Validation *SettingValidation `json:"validation,omitempty"`
 	// Options defines available choices for dropdown/enum settings
 	Options []SettingOption `json:"options,omitempty"`
 }
 
-// SettingValidation defines validation rules for setting values
+func (s SettingDefinition) Format(currentValue string) string {
+	if s.Type == Boolean {
+		switch currentValue {
+		case "true":
+			return "✅ True"
+		case "false":
+			return "❌ False"
+		}
+	}
+
+	return currentValue
+}
+
+func (s SettingDefinition) Validate(value string) error {
+	v, err := s.parseValue(value)
+	if err != nil {
+		return fmt.Errorf("invalid setting value: %w", err)
+	}
+
+	return s.Validation.validateAny(v)
+}
+
+func (s SettingDefinition) parseValue(value string) (any, error) {
+	switch s.Type {
+	case Text:
+		return value, nil
+	case Number:
+		return parseNumber(value)
+	case Boolean:
+		return parseBoolean(value)
+	case Duration:
+		return ParseDuration(value)
+	default:
+		return nil, fmt.Errorf("%w: unknown setting type: %s", ErrValidationFailed, s.Type)
+	}
+}
+
+// SettingValidation defines validation rules for setting values.
 type SettingValidation struct {
 	// MinValue is the minimum allowed value for numeric settings
 	MinValue *float64 `json:"min_value,omitempty"`
@@ -53,52 +91,164 @@ type SettingValidation struct {
 	Required bool `json:"required"`
 }
 
-// SettingOption defines a choice for dropdown/enum settings
+func (s *SettingValidation) validateAny(value any) error {
+	switch v := value.(type) {
+	case string:
+		return s.validateText(v)
+	case float64:
+		return s.validateNumber(v)
+	case bool:
+		return s.validateBoolean(v)
+	case time.Duration:
+		return s.validateDuration(v)
+	case DurationValue:
+		return s.validateDuration(v.Duration)
+	default:
+		return fmt.Errorf("%w: unknown setting value type: %T", ErrValidationFailed, value)
+	}
+}
+
+func (s *SettingValidation) validateText(value string) error {
+	if s == nil {
+		return nil
+	}
+
+	if s.Required && value == "" {
+		return fmt.Errorf("%w: value is required", ErrValidationFailed)
+	}
+
+	if s.MinLength != nil && len(value) < *s.MinLength {
+		return fmt.Errorf("%w: value must be at least %d characters long", ErrValidationFailed, *s.MinLength)
+	}
+
+	if s.MaxLength != nil && len(value) > *s.MaxLength {
+		return fmt.Errorf("%w: value must be at most %d characters long", ErrValidationFailed, *s.MaxLength)
+	}
+
+	if s.Pattern != nil {
+		matched, err := regexp.MatchString(*s.Pattern, value)
+		if err != nil {
+			return fmt.Errorf("%w: invalid validation pattern: %w", ErrValidationFailed, err)
+		}
+		if !matched {
+			return fmt.Errorf("%w: value does not match required pattern", ErrValidationFailed)
+		}
+	}
+
+	return nil
+}
+
+func (s *SettingValidation) validateNumber(value float64) error {
+	if s == nil {
+		return nil
+	}
+
+	if s.Required && value == 0 {
+		return fmt.Errorf("%w: value is required", ErrValidationFailed)
+	}
+
+	if s.MinValue != nil && value < *s.MinValue {
+		return fmt.Errorf("%w: value must be at least %f", ErrValidationFailed, *s.MinValue)
+	}
+
+	if s.MaxValue != nil && value > *s.MaxValue {
+		return fmt.Errorf("%w: value must be at most %f", ErrValidationFailed, *s.MaxValue)
+	}
+
+	return nil
+}
+
+func (s *SettingValidation) validateDuration(value time.Duration) error {
+	if s == nil {
+		return nil
+	}
+
+	if s.Required && value == 0 {
+		return fmt.Errorf("%w: value is required", ErrValidationFailed)
+	}
+
+	if s.MinValue != nil && value < time.Second*time.Duration(*s.MinValue) {
+		return fmt.Errorf(
+			"%w: duration must be at least %v",
+			ErrValidationFailed,
+			time.Second*time.Duration(*s.MinValue),
+		)
+	}
+
+	if s.MaxValue != nil && value > time.Second*time.Duration(*s.MaxValue) {
+		return fmt.Errorf(
+			"%w: duration must be at most %v",
+			ErrValidationFailed,
+			time.Second*time.Duration(*s.MaxValue),
+		)
+	}
+
+	return nil
+}
+
+func (s *SettingValidation) validateBoolean(_ bool) error {
+	return nil
+}
+
+// SettingOption defines a choice for dropdown/enum settings.
 type SettingOption struct {
 	// Label is the human-readable option name
 	Label string `json:"label"`
 	// Value is the actual value stored for this option
-	Value interface{} `json:"value"`
+	Value any `json:"value"`
 }
 
-// DurationValue represents a time duration with parsing and formatting utilities
+// DurationValue represents a time duration with parsing and formatting utilities.
 type DurationValue struct {
 	time.Duration
 }
 
-// String returns the duration in HH:MM:SS format
+// String returns the duration in HH:MM:SS format.
 func (d DurationValue) String() string {
 	if d.Duration == 0 {
 		return "00:00:00"
 	}
 
+	const (
+		minutesPerHour   = 60
+		secondsPerMinute = 60
+	)
+
 	hours := int(d.Duration.Hours())
-	minutes := int(d.Duration.Minutes()) % 60
-	seconds := int(d.Duration.Seconds()) % 60
+	minutes := int(d.Duration.Minutes()) % minutesPerHour
+	seconds := int(d.Duration.Seconds()) % secondsPerMinute
 
 	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
 }
 
-// ParseDuration parses a duration from HH:MM:SS format
+// ParseDuration parses a duration from HH:MM:SS format.
 func ParseDuration(s string) (DurationValue, error) {
+	const partsCount = 3
+
 	parts := strings.Split(s, ":")
-	if len(parts) != 3 {
-		return DurationValue{}, fmt.Errorf("invalid duration format, expected HH:MM:SS")
+	if len(parts) != partsCount {
+		return DurationValue{}, fmt.Errorf("%w: invalid duration format, expected HH:MM:SS", ErrValidationFailed)
 	}
 
 	hours, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return DurationValue{}, fmt.Errorf("invalid hours: %v", err)
+		return DurationValue{}, fmt.Errorf("%w: invalid hours: %w", ErrValidationFailed, err)
 	}
 
 	minutes, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return DurationValue{}, fmt.Errorf("invalid minutes: %v", err)
+		return DurationValue{}, fmt.Errorf("%w: invalid minutes: %w", ErrValidationFailed, err)
+	}
+	if minutes < 0 || minutes > 59 {
+		return DurationValue{}, fmt.Errorf("%w: minutes must be between 0 and 59", ErrValidationFailed)
 	}
 
 	seconds, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return DurationValue{}, fmt.Errorf("invalid seconds: %v", err)
+		return DurationValue{}, fmt.Errorf("%w: invalid seconds: %w", ErrValidationFailed, err)
+	}
+	if seconds < 0 || seconds > 59 {
+		return DurationValue{}, fmt.Errorf("%w: seconds must be between 0 and 59", ErrValidationFailed)
 	}
 
 	duration := time.Duration(hours)*time.Hour + time.Duration(minutes)*time.Minute + time.Duration(seconds)*time.Second

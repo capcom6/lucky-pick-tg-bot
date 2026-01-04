@@ -20,9 +20,11 @@ func ChatID(update *models.Update) int64 {
 	if update == nil {
 		return 0
 	}
-
 	if update.Message != nil {
 		return update.Message.Chat.ID
+	}
+	if update.CallbackQuery != nil && update.CallbackQuery.Message.Message != nil {
+		return update.CallbackQuery.Message.Message.Chat.ID
 	}
 	if update.MyChatMember != nil {
 		return update.MyChatMember.Chat.ID

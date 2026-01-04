@@ -3,7 +3,6 @@ package handlers
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
-	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -11,18 +10,14 @@ import (
 
 type Start struct {
 	handler.BaseHandler
-
-	usersSvc *users.Service
 }
 
-func NewStart(bot *bot.Bot, usersSvc *users.Service, logger *zap.Logger) handler.Handler {
+func NewStart(bot *bot.Bot, logger *zap.Logger) handler.Handler {
 	return &Start{
 		BaseHandler: handler.BaseHandler{
 			Bot:    bot,
 			Logger: logger,
 		},
-
-		usersSvc: usersSvc,
 	}
 }
 

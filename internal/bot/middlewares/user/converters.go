@@ -5,7 +5,7 @@ import (
 	"github.com/go-telegram/bot/models"
 )
 
-func UserToDomain(user *models.User) users.UserIn {
+func ToDomain(user *models.User) users.UserIn {
 	return users.UserIn{
 		TelegramUserID: user.ID,
 		Username:       user.Username,

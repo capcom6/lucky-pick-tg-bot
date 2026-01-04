@@ -1,4 +1,4 @@
-package handlers
+package groups
 
 import (
 	"context"
@@ -17,9 +17,6 @@ import (
 )
 
 const (
-	//
-	groupsStatePrefix = "groups:"
-
 	// Group command constants.
 	groupsCommand = "/groups"
 
@@ -27,21 +24,21 @@ const (
 	groupsSelectionCallback = "groups:select:"
 )
 
-// Groups handles group management operations.
-type Groups struct {
+// Handler handles group management operations.
+type Handler struct {
 	handler.BaseHandler
 
 	usersSvc  *users.Service
 	groupsSvc *groups.Service
 }
 
-func NewGroups(
+func NewHandler(
 	bot *bot.Bot,
 	usersSvc *users.Service,
 	groupsSvc *groups.Service,
 	logger *zap.Logger,
 ) handler.Handler {
-	return &Groups{
+	return &Handler{
 		BaseHandler: handler.BaseHandler{
 			Bot:    bot,
 			Logger: logger,
@@ -52,7 +49,7 @@ func NewGroups(
 	}
 }
 
-func (h *Groups) Register(b *bot.Bot) {
+func (h *Handler) Register(b *bot.Bot) {
 	// Register chat member handler (existing functionality)
 	b.RegisterHandlerMatchFunc(
 		h.filterChatMember,
@@ -83,18 +80,18 @@ func (h *Groups) Register(b *bot.Bot) {
 	)
 }
 
-func (h *Groups) filterChatMember(update *models.Update) bool {
+func (h *Handler) filterChatMember(update *models.Update) bool {
 	return update.MyChatMember != nil
 }
 
-func (h *Groups) filterGroupsCommand(update *models.Update) bool {
+func (h *Handler) filterGroupsCommand(update *models.Update) bool {
 	if update.Message == nil || update.Message.Text == "" {
 		return false
 	}
 	return update.Message.Text == groupsCommand && update.Message.Chat.Type == models.ChatTypePrivate
 }
 
-func (h *Groups) handleChatMember(ctx context.Context, _ *bot.Bot, update *models.Update) {
+func (h *Handler) handleChatMember(ctx context.Context, _ *bot.Bot, update *models.Update) {
 	h.Logger.Debug("my chat member update", zap.Any("update", update))
 
 	if update.MyChatMember == nil {
@@ -134,17 +131,8 @@ func (h *Groups) handleChatMember(ctx context.Context, _ *bot.Bot, update *model
 	}
 }
 
-func (h *Groups) handleGroupsCommand(ctx *adaptor.Context, update *models.Update) {
+func (h *Handler) handleGroupsCommand(ctx *adaptor.Context, update *models.Update) {
 	logger := h.WithContext(update)
-	from := extractors.User(update)
-	if from == nil {
-		h.SendReply(
-			ctx,
-			update,
-			&bot.SendMessageParams{Text: "❌ Failed to process user. Please try again."},
-		)
-		return
-	}
 
 	// Register or get user
 	user, err := ctx.User()
@@ -186,10 +174,15 @@ func (h *Groups) handleGroupsCommand(ctx *adaptor.Context, update *models.Update
 	}
 
 	// Show group selection keyboard
-	h.showGroupSelectionKeyboard(ctx, update.Message.Chat.ID, adminGroups)
+	chatID := extractors.ChatID(update)
+	if chatID == 0 {
+		logger.Error("failed to extract chat ID")
+		return
+	}
+	h.showGroupSelectionKeyboard(ctx, chatID, adminGroups)
 }
 
-func (h *Groups) showGroupSelectionKeyboard(ctx context.Context, chatID int64, groups []groups.GroupWithSettings) {
+func (h *Handler) showGroupSelectionKeyboard(ctx context.Context, chatID int64, groups []groups.GroupWithSettings) {
 	markup := keyboards.GroupSelectionKeyboard(
 		groupsSelectionCallback,
 		groups,
@@ -206,7 +199,7 @@ func (h *Groups) showGroupSelectionKeyboard(ctx context.Context, chatID int64, g
 	)
 }
 
-func (h *Groups) handleGroupSelection(ctx context.Context, _ *bot.Bot, update *models.Update) {
+func (h *Handler) handleGroupSelection(ctx context.Context, _ *bot.Bot, update *models.Update) {
 	logger := h.WithContext(update)
 
 	if update.CallbackQuery == nil {
@@ -222,14 +215,14 @@ func (h *Groups) handleGroupSelection(ctx context.Context, _ *bot.Bot, update *m
 	h.showGroupMenu(ctx, update, groupID)
 }
 
-func (h *Groups) showGroupMenu(ctx context.Context, update *models.Update, groupID int64) {
+func (h *Handler) showGroupMenu(ctx context.Context, update *models.Update, groupID int64) {
 	h.SendReply(
 		ctx,
 		update,
 		&bot.SendMessageParams{
 			Text:        "👥 Group settings",
 			ParseMode:   models.ParseModeMarkdown,
-			ReplyMarkup: keyboards.GroupManagementKeyboard(groupID),
+			ReplyMarkup: managementKeyboard(groupID),
 		},
 	)
 }

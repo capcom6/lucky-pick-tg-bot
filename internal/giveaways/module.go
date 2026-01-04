@@ -14,17 +14,9 @@ func Module() fx.Option {
 		fx.Provide(NewLLM, fx.Private),
 		fx.Provide(NewService),
 		fx.Invoke(func(settingsSvc *settings.Service) {
-			settingsSvc.RegisterDefinition(settings.SettingDefinition{
-				Key:          "giveaways.llm_description",
-				Category:     "giveaways",
-				Label:        "Use LLM for Descriptions",
-				Description:  "Generate giveaway descriptions using AI",
-				Type:         settings.Boolean,
-				DefaultValue: false,
-				Validation: &settings.SettingValidation{
-					Required: false,
-				},
-			})
+			for _, v := range SettingDefinitions() {
+				settingsSvc.RegisterDefinition(v)
+			}
 		}),
 	)
 }

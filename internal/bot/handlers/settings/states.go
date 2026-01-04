@@ -9,34 +9,31 @@ import (
 )
 
 const (
-	// categoriesList shows the main settings menu with categories
+	// categoriesList shows the main settings menu with categories.
 	categoriesList = "settings:categories"
 
-	// settingList shows settings within a selected category
+	// settingList shows settings within a selected category.
 	settingList = "settings:setting_list"
 
-	// settingInputPrefix is a prefix for input states
+	// settingInputPrefix is a prefix for input states.
 	settingInputPrefix = "settings:input:"
 
-	// settingInputText is a sub-state for text input
+	// settingInputText is a sub-state for text input.
 	settingInputText = "settings:input:text"
 
-	// settingInputNumber is a sub-state for number input
+	// settingInputNumber is a sub-state for number input.
 	settingInputNumber = "settings:input:number"
 
-	// settingInputBoolean is a sub-state for boolean input
-	settingInputBoolean = "settings:input:boolean:"
-
-	// settingInputDuration is a sub-state for duration input
+	// settingInputDuration is a sub-state for duration input.
 	settingInputDuration = "settings:input:duration"
 )
 
-// State data keys for settings flow
+// State data keys for settings flow.
 const (
-	// Group context
+	// Group context.
 	settingsDataGroupID = "settings:group_id"
 
-	// Current context
+	// Current context.
 	settingsDataCategory = "settings:category"
 	settingsDataSetting  = "settings:setting"
 )
