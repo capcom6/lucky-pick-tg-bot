@@ -9,8 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/keyboards"
-	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/state"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/middlewares/state"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
@@ -49,7 +51,7 @@ const (
 
 // GiveawayScheduler handles giveaway scheduling flow.
 type GiveawayScheduler struct {
-	BaseHandler
+	handler.BaseHandler
 
 	fsmService *fsm.Service
 
@@ -65,11 +67,11 @@ func NewGiveawayScheduler(
 	groupsSvc *groups.Service,
 	giveawaysSvc *giveaways.Service,
 	logger *zap.Logger,
-) Handler {
+) handler.Handler {
 	return &GiveawayScheduler{
-		BaseHandler: BaseHandler{
-			bot:    bot,
-			logger: logger,
+		BaseHandler: handler.BaseHandler{
+			Bot:    bot,
+			Logger: logger,
 		},
 
 		fsmService: fsmService,
@@ -82,8 +84,8 @@ func NewGiveawayScheduler(
 
 func (g *GiveawayScheduler) Register(b *bot.Bot) {
 	// Register command handler
-	isEmptyState := state.NewStateFilter("", g.fsmService, g.logger)
-	hasPrefixState := state.NewStatePrefixFilter(giveawayStatePrefix, g.fsmService, g.logger)
+	isEmptyState := state.NewStateFilter("", g.fsmService, g.Logger)
+	hasPrefixState := state.NewStatePrefixFilter(giveawayStatePrefix, g.fsmService, g.Logger)
 	commandFilter := func(command string) bot.MatchFunc {
 		return func(update *models.Update) bool {
 			if update.Message == nil {
@@ -108,7 +110,7 @@ func (g *GiveawayScheduler) Register(b *bot.Bot) {
 			isEmptyState,
 			commandFilter(giveawayCommand),
 		),
-		g.handleGiveawayCommand,
+		adaptor.New(g.handleGiveawayCommand),
 	)
 
 	b.RegisterHandlerMatchFunc(
@@ -121,7 +123,7 @@ func (g *GiveawayScheduler) Register(b *bot.Bot) {
 
 	b.RegisterHandlerMatchFunc(
 		combinator(
-			state.NewStateFilter(giveawayStateWaitGroup, g.fsmService, g.logger),
+			state.NewStateFilter(giveawayStateWaitGroup, g.fsmService, g.Logger),
 			func(update *models.Update) bool {
 				return update.CallbackQuery != nil &&
 					strings.HasPrefix(update.CallbackQuery.Data, giveawayCallbackGroup)
@@ -132,7 +134,7 @@ func (g *GiveawayScheduler) Register(b *bot.Bot) {
 
 	b.RegisterHandlerMatchFunc(
 		combinator(
-			state.NewStateFilter(giveawayStateWaitPhoto, g.fsmService, g.logger),
+			state.NewStateFilter(giveawayStateWaitPhoto, g.fsmService, g.Logger),
 			func(update *models.Update) bool {
 				return update.Message != nil
 			},
@@ -142,7 +144,7 @@ func (g *GiveawayScheduler) Register(b *bot.Bot) {
 
 	b.RegisterHandlerMatchFunc(
 		combinator(
-			state.NewStateFilter(giveawayStateWaitPublishDate, g.fsmService, g.logger),
+			state.NewStateFilter(giveawayStateWaitPublishDate, g.fsmService, g.Logger),
 			func(update *models.Update) bool {
 				return update.Message != nil
 			},
@@ -159,7 +161,7 @@ func (g *GiveawayScheduler) Register(b *bot.Bot) {
 					update.CallbackQuery.Data == giveawayCallbackConfirm
 			},
 		),
-		g.handleConfirmation,
+		adaptor.New(g.handleConfirmation),
 	)
 
 	b.RegisterHandlerMatchFunc(
@@ -174,15 +176,15 @@ func (g *GiveawayScheduler) Register(b *bot.Bot) {
 	)
 }
 
-func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bot, update *models.Update) {
+func (g *GiveawayScheduler) handleGiveawayCommand(ctx *adaptor.Context, update *models.Update) {
 	if update.Message == nil || update.Message.From == nil {
-		g.withContext(update).Error("invalid update: missing message or sender")
+		g.WithContext(update).Error("invalid update: missing message or sender")
 		return
 	}
 
 	// Ensure this is not in a group chat
 	if update.Message.Chat.Type != models.ChatTypePrivate {
-		g.sendReply(
+		g.SendReply(
 			ctx,
 			update,
 			&bot.SendMessageParams{Text: "❌ Giveaway scheduling is only available in private chats."},
@@ -190,13 +192,13 @@ func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bo
 		return
 	}
 
-	logger := g.withContext(update)
+	logger := g.WithContext(update)
 
 	// Register or get user
-	user, err := g.usersSvc.RegisterUser(ctx, UserToDomain(update.Message.From))
+	user, err := ctx.User()
 	if err != nil {
 		logger.Error("failed to register user", zap.Error(err))
-		g.sendReply(ctx, update, &bot.SendMessageParams{Text: "❌ Failed to process user. Please try again."})
+		g.SendReply(ctx, update, &bot.SendMessageParams{Text: "❌ Failed to process user. Please try again."})
 		return
 	}
 
@@ -204,12 +206,12 @@ func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bo
 	adminGroups, err := g.groupsSvc.GetUserAdminGroups(ctx, user.ID)
 	if err != nil {
 		logger.Error("failed to get user admin groups", zap.Error(err))
-		g.sendReply(ctx, update, &bot.SendMessageParams{Text: "❌ Failed to verify admin status. Please try again."})
+		g.SendReply(ctx, update, &bot.SendMessageParams{Text: "❌ Failed to verify admin status. Please try again."})
 		return
 	}
 
 	if len(adminGroups) == 0 {
-		g.sendReply(
+		g.SendReply(
 			ctx,
 			update,
 			&bot.SendMessageParams{Text: "❌ You must be an admin of a group to schedule giveaways."},
@@ -217,9 +219,9 @@ func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bo
 		return
 	}
 
-	state, err := state.GetState(ctx)
+	state, err := state.FromContext(ctx)
 	if err != nil {
-		g.handleError(ctx, update, fmt.Errorf("failed to get state: %w", err))
+		g.HandleError(ctx, update, fmt.Errorf("failed to get state: %w", err))
 		return
 	}
 
@@ -228,7 +230,7 @@ func (g *GiveawayScheduler) handleGiveawayCommand(ctx context.Context, _ *bot.Bo
 		state.SetName(giveawayStateWaitPhoto)
 		state.AddData(giveawayDataGroupID, strconv.FormatInt(adminGroups[0].ID, 10))
 
-		g.sendReply(
+		g.SendReply(
 			ctx,
 			update,
 			&bot.SendMessageParams{Text: "📸 Please send a photo with description caption for the giveaway."},
@@ -251,7 +253,7 @@ func (g *GiveawayScheduler) showGroupSelectionKeyboard(
 		groups,
 	)
 
-	g.sendMessage(
+	g.SendMessage(
 		ctx,
 		&bot.SendMessageParams{
 			ChatID:      chatID,
@@ -267,11 +269,11 @@ func (g *GiveawayScheduler) handleGiveawayGroup(ctx context.Context, _ *bot.Bot,
 		return
 	}
 
-	logger := g.withContext(update)
-	state, err := state.GetState(ctx)
+	logger := g.WithContext(update)
+	state, err := state.FromContext(ctx)
 	if err != nil {
 		logger.Error("failed to get state", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
@@ -280,14 +282,14 @@ func (g *GiveawayScheduler) handleGiveawayGroup(ctx context.Context, _ *bot.Bot,
 	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
 	if err != nil {
 		logger.Error("failed to parse group ID", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
 	state.SetName(giveawayStateWaitPhoto)
 	state.AddData(giveawayDataGroupID, strconv.FormatInt(groupID, 10))
 
-	g.sendReply(
+	g.SendReply(
 		ctx,
 		update,
 		&bot.SendMessageParams{Text: "📸 Please send a photo with description caption for the giveaway."},
@@ -295,17 +297,17 @@ func (g *GiveawayScheduler) handleGiveawayGroup(ctx context.Context, _ *bot.Bot,
 }
 
 func (g *GiveawayScheduler) handlePhotoAndDescription(ctx context.Context, _ *bot.Bot, update *models.Update) {
-	logger := g.withContext(update)
+	logger := g.WithContext(update)
 
-	state, err := state.GetState(ctx)
+	state, err := state.FromContext(ctx)
 	if err != nil {
 		logger.Error("failed to get state", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
 	if len(update.Message.Photo) == 0 || update.Message.Caption == "" {
-		g.sendReply(ctx, update, &bot.SendMessageParams{Text: "❌ Please send a photo with description caption."})
+		g.SendReply(ctx, update, &bot.SendMessageParams{Text: "❌ Please send a photo with description caption."})
 		return
 	}
 
@@ -321,7 +323,7 @@ func (g *GiveawayScheduler) handlePhotoAndDescription(ctx context.Context, _ *bo
 	state.AddData(giveawayDataOriginalDescription, update.Message.Caption)
 
 	// Request start time
-	g.sendReply(
+	g.SendReply(
 		ctx,
 		update,
 		&bot.SendMessageParams{
@@ -331,17 +333,17 @@ func (g *GiveawayScheduler) handlePhotoAndDescription(ctx context.Context, _ *bo
 }
 
 func (g *GiveawayScheduler) handlePublishDate(ctx context.Context, _ *bot.Bot, update *models.Update) {
-	logger := g.withContext(update)
+	logger := g.WithContext(update)
 
-	state, err := state.GetState(ctx)
+	state, err := state.FromContext(ctx)
 	if err != nil {
 		logger.Error("failed to get state", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
 	if update.Message == nil || update.Message.Text == "" {
-		g.sendReply(
+		g.SendReply(
 			ctx,
 			update,
 			&bot.SendMessageParams{
@@ -353,7 +355,7 @@ func (g *GiveawayScheduler) handlePublishDate(ctx context.Context, _ *bot.Bot, u
 
 	startTime, err := parseDateTime(update.Message.Text)
 	if err != nil {
-		g.sendReply(
+		g.SendReply(
 			ctx,
 			update,
 			&bot.SendMessageParams{
@@ -377,7 +379,7 @@ func (g *GiveawayScheduler) handlePublishDate(ctx context.Context, _ *bot.Bot, u
 func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chatID int64, state *fsm.State) {
 	group, settings, err := g.loadGroupAndSettings(ctx)
 	if err != nil {
-		g.sendMessage(ctx, &bot.SendMessageParams{
+		g.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatID,
 			Text:   "❌ Failed to load group and settings. Please try again.",
 		})
@@ -388,8 +390,8 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 	if settings.LLMDescription {
 		photo, downErr := g.downloadPhoto(ctx, state.GetData(giveawayDataPhotoID))
 		if downErr != nil {
-			g.logger.Error("failed to download photo", zap.Error(downErr))
-			g.sendMessage(ctx, &bot.SendMessageParams{
+			g.Logger.Error("failed to download photo", zap.Error(downErr))
+			g.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chatID,
 				Text:   "❌ Failed to download photo. Please try again.",
 			})
@@ -398,8 +400,8 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 
 		publishDate, downErr := parseDateTime(state.GetData(giveawayDataPublishDate))
 		if downErr != nil {
-			g.logger.Error("failed to parse publish date", zap.Error(downErr))
-			g.sendMessage(ctx, &bot.SendMessageParams{
+			g.Logger.Error("failed to parse publish date", zap.Error(downErr))
+			g.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chatID,
 				Text:   "❌ Failed to parse publish date. Please try again.",
 			})
@@ -413,8 +415,8 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 			photo,
 		)
 		if downErr != nil {
-			g.logger.Error("failed to generate description", zap.Error(downErr))
-			g.sendMessage(ctx, &bot.SendMessageParams{
+			g.Logger.Error("failed to generate description", zap.Error(downErr))
+			g.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chatID,
 				Text:   "❌ Failed to generate description. Please try again.",
 			})
@@ -453,7 +455,7 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 		},
 	}
 
-	_, err = g.bot.SendPhoto(ctx, &bot.SendPhotoParams{
+	_, err = g.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
 		ChatID:      chatID,
 		Photo:       &models.InputFileString{Data: state.GetData(giveawayDataPhotoID)},
 		Caption:     previewText,
@@ -461,60 +463,60 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 		ReplyMarkup: markup,
 	})
 	if err != nil {
-		g.logger.Error("failed to send message with keyboard", zap.Error(err))
+		g.Logger.Error("failed to send message with keyboard", zap.Error(err))
 	}
 }
 
-func (g *GiveawayScheduler) handleConfirmation(ctx context.Context, _ *bot.Bot, update *models.Update) {
-	logger := g.withContext(update)
+func (g *GiveawayScheduler) handleConfirmation(ctx *adaptor.Context, update *models.Update) {
+	logger := g.WithContext(update)
 
-	user, err := g.usersSvc.RegisterUser(ctx, UserToDomain(&update.CallbackQuery.From))
+	user, err := ctx.User()
 	if err != nil {
 		logger.Error("failed to register user", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
-	state, err := state.GetState(ctx)
+	state, err := state.FromContext(ctx)
 	if err != nil {
 		logger.Error("failed to get state", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
 	groupID, err := strconv.ParseInt(state.GetData(giveawayDataGroupID), 10, 64)
 	if err != nil {
 		logger.Error("failed to parse group ID", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
 	if ok, adminErr := g.groupsSvc.IsAdmin(ctx, groupID, user.ID); adminErr != nil {
-		g.handleError(ctx, update, fmt.Errorf("failed to check if user is group admin: %w", adminErr))
+		g.HandleError(ctx, update, fmt.Errorf("failed to check if user is group admin: %w", adminErr))
 		return
 	} else if !ok {
 		logger.Error("user is not group admin", zap.Int64("group_id", groupID), zap.Int64("user_id", user.ID))
-		g.sendReply(ctx, update, &bot.SendMessageParams{Text: "❌ You are not group admin."})
+		g.SendReply(ctx, update, &bot.SendMessageParams{Text: "❌ You are not group admin."})
 		return
 	}
 
 	publishDate, err := parseDateTime(state.GetData(giveawayDataPublishDate))
 	if err != nil {
 		logger.Error("failed to parse publish date", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
 	applicationEndDate, err := parseDateTime(state.GetData(giveawayDataApplicationEndDate))
 	if err != nil {
 		logger.Error("failed to parse application end date", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 	resultsDate, err := parseDateTime(state.GetData(giveawayDataResultsDate))
 	if err != nil {
 		logger.Error("failed to parse results date", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
@@ -532,31 +534,31 @@ func (g *GiveawayScheduler) handleConfirmation(ctx context.Context, _ *bot.Bot, 
 		OriginalDescription: state.GetData(giveawayDataOriginalDescription),
 	}); createErr != nil {
 		logger.Error("failed to create giveaway", zap.Error(createErr))
-		g.handleError(ctx, update, createErr)
+		g.HandleError(ctx, update, createErr)
 		return
 	}
 
 	state.Clear()
-	g.sendReply(ctx, update, &bot.SendMessageParams{Text: "✅ Giveaway scheduled successfully!"})
+	g.SendReply(ctx, update, &bot.SendMessageParams{Text: "✅ Giveaway scheduled successfully!"})
 }
 
 func (g *GiveawayScheduler) handleCancelCommand(ctx context.Context, _ *bot.Bot, update *models.Update) {
-	logger := g.withContext(update)
+	logger := g.WithContext(update)
 
-	state, err := state.GetState(ctx)
+	state, err := state.FromContext(ctx)
 	if err != nil {
 		logger.Error("failed to get state", zap.Error(err))
-		g.handleError(ctx, update, err)
+		g.HandleError(ctx, update, err)
 		return
 	}
 
 	state.Clear()
 
-	g.sendReply(ctx, update, &bot.SendMessageParams{Text: "🔄 Operation cancelled."})
+	g.SendReply(ctx, update, &bot.SendMessageParams{Text: "🔄 Operation cancelled."})
 }
 
 func (g *GiveawayScheduler) loadGroupAndSettings(ctx context.Context) (*groups.Group, *giveaways.Settings, error) {
-	state, err := state.GetState(ctx)
+	state, err := state.FromContext(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get state: %w", err)
 	}
@@ -583,14 +585,14 @@ func (g *GiveawayScheduler) downloadPhoto(ctx context.Context, fileID string) ([
 	const maxPhotoSize = 10 * 1024 * 1024 // 10MB limit
 	const downloadTimeout = 30 * time.Second
 
-	f, err := g.bot.GetFile(ctx, &bot.GetFileParams{
+	f, err := g.Bot.GetFile(ctx, &bot.GetFileParams{
 		FileID: fileID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file: %w", err)
 	}
 
-	link := g.bot.FileDownloadLink(f)
+	link := g.Bot.FileDownloadLink(f)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if err != nil {

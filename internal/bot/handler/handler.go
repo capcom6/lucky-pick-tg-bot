@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"context"
@@ -14,19 +14,19 @@ type Handler interface {
 }
 
 type BaseHandler struct {
-	bot *bot.Bot
+	Bot *bot.Bot
 
-	logger *zap.Logger
+	Logger *zap.Logger
 }
 
-func (h *BaseHandler) sendMessage(ctx context.Context, params *bot.SendMessageParams) {
+func (h *BaseHandler) SendMessage(ctx context.Context, params *bot.SendMessageParams) {
 	if params.ChatID == 0 {
-		h.logger.Error("failed to send message: missing chat ID", zap.Any("params", params))
+		h.Logger.Error("failed to send message: missing chat ID", zap.Any("params", params))
 		return
 	}
 
-	if _, err := h.bot.SendMessage(ctx, params); err != nil {
-		h.logger.Error(
+	if _, err := h.Bot.SendMessage(ctx, params); err != nil {
+		h.Logger.Error(
 			"failed to send message",
 			zap.Any("params", params),
 			zap.Error(err),
@@ -34,7 +34,7 @@ func (h *BaseHandler) sendMessage(ctx context.Context, params *bot.SendMessagePa
 	}
 }
 
-func (h *BaseHandler) sendReply(ctx context.Context, update *models.Update, params *bot.SendMessageParams) {
+func (h *BaseHandler) SendReply(ctx context.Context, update *models.Update, params *bot.SendMessageParams) {
 	fromID := extractors.From(update)
 
 	params.ChatID = fromID
@@ -42,14 +42,14 @@ func (h *BaseHandler) sendReply(ctx context.Context, update *models.Update, para
 		params.ReplyParameters.MessageID = update.Message.ID
 	}
 
-	h.sendMessage(ctx, params)
+	h.SendMessage(ctx, params)
 }
 
-func (h *BaseHandler) withContext(update *models.Update) *zap.Logger {
-	logger := h.logger
+func (h *BaseHandler) WithContext(update *models.Update) *zap.Logger {
+	logger := h.Logger
 
 	if update == nil {
-		return h.logger
+		return h.Logger
 	}
 
 	switch {
@@ -95,9 +95,9 @@ func (h *BaseHandler) withContext(update *models.Update) *zap.Logger {
 	return logger
 }
 
-func (h *BaseHandler) handleError(ctx context.Context, update *models.Update, err error) {
-	h.withContext(update).Error("handling error", zap.Error(err))
-	h.sendReply(
+func (h *BaseHandler) HandleError(ctx context.Context, update *models.Update, err error) {
+	h.WithContext(update).Error("handling error", zap.Error(err))
+	h.SendReply(
 		ctx,
 		update,
 		&bot.SendMessageParams{Text: "К сожалению, возникла ошибка. Обратитесь к администратору."},
