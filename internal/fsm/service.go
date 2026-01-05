@@ -43,3 +43,14 @@ func (s *Service) Set(ctx context.Context, userID int64, state *State) error {
 
 	return nil
 }
+
+func (s *Service) Delete(ctx context.Context, userID int64) error {
+	if err := s.storage.Delete(ctx, strconv.FormatInt(userID, 10)); err != nil {
+		if errors.Is(err, cache.ErrKeyNotFound) {
+			return nil
+		}
+		return fmt.Errorf("delete state: %w", err)
+	}
+
+	return nil
+}
