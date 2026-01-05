@@ -1,10 +1,11 @@
 package handlers
 
 import (
-	"context"
 	"strconv"
 	"strings"
 
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/go-telegram/bot"
@@ -15,7 +16,7 @@ import (
 const participatePrefix = "participate:"
 
 type Participant struct {
-	BaseHandler
+	handler.BaseHandler
 
 	usersSvc     *users.Service
 	giveawaysSvc *giveaways.Service
@@ -26,11 +27,11 @@ func NewParticipant(
 	usersSvc *users.Service,
 	giveawaysSvc *giveaways.Service,
 	logger *zap.Logger,
-) Handler {
+) handler.Handler {
 	return &Participant{
-		BaseHandler: BaseHandler{
-			bot:    bot,
-			logger: logger,
+		BaseHandler: handler.BaseHandler{
+			Bot:    bot,
+			Logger: logger,
 		},
 
 		usersSvc:     usersSvc,
@@ -39,7 +40,7 @@ func NewParticipant(
 }
 
 func (p *Participant) Register(b *bot.Bot) {
-	b.RegisterHandlerMatchFunc(p.filterParticipateCallback, p.handleParticipate)
+	b.RegisterHandlerMatchFunc(p.filterParticipateCallback, adaptor.New(p.handleParticipate))
 }
 
 func (p *Participant) filterParticipateCallback(update *models.Update) bool {
@@ -54,18 +55,18 @@ func (p *Participant) filterParticipateCallback(update *models.Update) bool {
 	return true
 }
 
-func (p *Participant) handleParticipate(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (p *Participant) handleParticipate(ctx *adaptor.Context, update *models.Update) {
 	if update.CallbackQuery == nil {
-		p.logger.Error("invalid update: missing callback query")
+		p.Logger.Error("invalid update: missing callback query")
 		return
 	}
 
-	logger := p.withContext(update)
+	logger := p.WithContext(update)
 
 	alertText := "Ваша заявка принята!"
 
 	defer func() {
-		if _, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		if _, err := p.Bot.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 			CallbackQueryID: update.CallbackQuery.ID,
 			Text:            alertText,
 			ShowAlert:       true,
@@ -74,10 +75,10 @@ func (p *Participant) handleParticipate(ctx context.Context, b *bot.Bot, update 
 		}
 	}()
 
-	user, err := p.usersSvc.RegisterUser(ctx, UserToDomain(&update.CallbackQuery.From))
+	user, err := ctx.User()
 	if err != nil {
 		alertText = alertSomethingWrong
-		logger.Error("failed to register user", zap.Error(err))
+		logger.Error("failed to get user", zap.Error(err))
 		return
 	}
 
