@@ -3,16 +3,12 @@ package giveaways
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/capcom6/lucky-pick-tg-bot/internal/settings"
 )
 
 type Settings struct {
 	LLMDescription bool
-}
-
-func DefaultSettings() Settings {
-	return Settings{
-		LLMDescription: false,
-	}
 }
 
 func NewSettings(settings map[string]string) (Settings, error) {
@@ -27,4 +23,24 @@ func NewSettings(settings map[string]string) (Settings, error) {
 	}
 
 	return s, nil
+}
+
+func DefaultSettings() Settings {
+	return Settings{
+		LLMDescription: false,
+	}
+}
+
+func SettingDefinitions() []settings.SettingDefinition {
+	//nolint:exhaustruct //default values
+	return []settings.SettingDefinition{
+		{
+			Key:          "giveaways.llm_description",
+			Category:     "🎯 Giveaways",
+			Label:        "Use LLM for Descriptions",
+			Description:  "Generate giveaway descriptions using AI",
+			Type:         settings.Boolean,
+			DefaultValue: "false",
+		},
+	}
 }
