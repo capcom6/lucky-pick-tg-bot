@@ -13,6 +13,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/scheduler"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/server"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/settings"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-core-fx/bunfx"
@@ -48,6 +49,7 @@ func Run() {
 		users.Module(),
 		giveaways.Module(),
 		groups.Module(),
+		settings.Module(),
 		actions.Module(),
 		discussions.Module(),
 		//

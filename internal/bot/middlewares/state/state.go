@@ -44,7 +44,7 @@ func NewMiddleware(svc *fsm.Service, logger *zap.Logger) bot.Middleware {
 	}
 }
 
-func GetState(ctx context.Context) (*fsm.State, error) {
+func FromContext(ctx context.Context) (*fsm.State, error) {
 	if v, ok := ctx.Value(stateKey).(*fsm.State); ok {
 		return v, nil
 	}
