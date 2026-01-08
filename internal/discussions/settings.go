@@ -2,7 +2,6 @@ package discussions
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/settings"
@@ -12,15 +11,15 @@ type Settings struct {
 	Delay time.Duration
 }
 
-func NewSettings(settings map[string]string) (Settings, error) {
+func NewSettings(dict map[string]string) (Settings, error) {
 	s := DefaultSettings()
 
-	if d := settings["discussions.delay"]; d != "" {
-		delay, err := strconv.Atoi(d)
+	if d := dict["discussions.delay"]; d != "" {
+		duration, err := settings.ParseDuration(d)
 		if err != nil {
 			return s, fmt.Errorf("failed to parse delay: %w", err)
 		}
-		s.Delay = time.Duration(delay) * time.Hour
+		s.Delay = duration.Duration
 	}
 
 	return s, nil
