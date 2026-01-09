@@ -37,12 +37,15 @@ func (h *BaseHandler) SendMessage(ctx context.Context, params *bot.SendMessagePa
 func (h *BaseHandler) SendReply(ctx context.Context, update *models.Update, params *bot.SendMessageParams) {
 	fromID := extractors.From(update)
 
-	params.ChatID = fromID
-	if params.ReplyParameters != nil && update.Message != nil {
-		params.ReplyParameters.MessageID = update.Message.ID
+	p := *params
+	p.ChatID = fromID
+	if p.ReplyParameters != nil && update.Message != nil {
+		rp := *p.ReplyParameters
+		rp.MessageID = update.Message.ID
+		p.ReplyParameters = &rp
 	}
 
-	h.SendMessage(ctx, params)
+	h.SendMessage(ctx, &p)
 }
 
 func (h *BaseHandler) WithContext(update *models.Update) *zap.Logger {
@@ -54,6 +57,9 @@ func (h *BaseHandler) WithContext(update *models.Update) *zap.Logger {
 
 	switch {
 	case update.CallbackQuery != nil:
+		if update.CallbackQuery.Message.Message != nil {
+			logger = logger.With(zap.Int64("chat_id", update.CallbackQuery.Message.Message.Chat.ID))
+		}
 		logger = logger.With(
 			zap.String("update_type", "callback_query"),
 			zap.Int64("from_id", update.CallbackQuery.From.ID),
