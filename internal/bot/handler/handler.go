@@ -39,9 +39,14 @@ func (h *BaseHandler) SendReply(ctx context.Context, update *models.Update, para
 
 	p := *params
 	p.ChatID = fromID
-	if p.ReplyParameters != nil && update.Message != nil {
+	if p.ReplyParameters != nil {
 		rp := *p.ReplyParameters
-		rp.MessageID = update.Message.ID
+		switch {
+		case update != nil && update.Message != nil:
+			rp.MessageID = update.Message.ID
+		case update != nil && update.CallbackQuery != nil && update.CallbackQuery.Message.Message != nil:
+			rp.MessageID = update.CallbackQuery.Message.Message.ID
+		}
 		p.ReplyParameters = &rp
 	}
 
