@@ -30,7 +30,7 @@ func NewMiddleware(svc *fsm.Service, logger *zap.Logger) bot.Middleware {
 			state, err := svc.Get(ctx, userID)
 			if err != nil {
 				logger.Error("get state", zap.Error(err))
-				state = new(fsm.State)
+				state = &fsm.State{Name: "", Data: map[string]string{}}
 			}
 
 			ctx = context.WithValue(ctx, stateKey, state)
