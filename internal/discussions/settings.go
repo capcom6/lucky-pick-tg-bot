@@ -43,8 +43,8 @@ func SettingDefinitions() []settings.SettingDefinition {
 			Type:         settings.Duration,
 			DefaultValue: "06:00:00",
 			Validation: &settings.SettingValidation{
-				MinValue: settings.Ptr(float64(3600)),      // Minimum 1 hour
-				MaxValue: settings.Ptr(float64(24 * 3600)), // Maximum 24 hours
+				MinValue: settings.Ptr(float64(time.Hour.Seconds())),      // Minimum 1 hour
+				MaxValue: settings.Ptr(float64(24 * time.Hour.Seconds())), // Maximum 24 hours
 				Required: false,
 			},
 		},
