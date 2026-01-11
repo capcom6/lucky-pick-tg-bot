@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"go.uber.org/zap"
 )
@@ -15,7 +16,7 @@ type Close struct {
 	giveawaysSvc *giveaways.Service
 }
 
-func NewClose(bot *bot.Bot, giveawaysSvc *giveaways.Service, logger *zap.Logger) Task {
+func NewClose(bot *gotelegrambotfx.Bot, giveawaysSvc *giveaways.Service, logger *zap.Logger) Task {
 	return &Close{
 		base: base{
 			bot:    bot,

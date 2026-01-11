@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -12,7 +13,7 @@ type Start struct {
 	handler.BaseHandler
 }
 
-func NewStart(bot *bot.Bot, logger *zap.Logger) handler.Handler {
+func NewStart(bot *gotelegrambotfx.Bot, logger *zap.Logger) handler.Handler {
 	return &Start{
 		BaseHandler: handler.BaseHandler{
 			Bot:    bot,
@@ -21,7 +22,7 @@ func NewStart(bot *bot.Bot, logger *zap.Logger) handler.Handler {
 	}
 }
 
-func (s *Start) Register(b *bot.Bot) {
+func (s *Start) Register(b *gotelegrambotfx.Bot) {
 	b.RegisterHandler(
 		bot.HandlerTypeMessageText,
 		"start",

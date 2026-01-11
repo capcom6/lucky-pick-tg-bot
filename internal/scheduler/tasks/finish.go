@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -16,7 +17,7 @@ type Finish struct {
 	giveawaysSvc *giveaways.Service
 }
 
-func NewFinish(bot *bot.Bot, giveawaysSvc *giveaways.Service, logger *zap.Logger) Task {
+func NewFinish(bot *gotelegrambotfx.Bot, giveawaysSvc *giveaways.Service, logger *zap.Logger) Task {
 	return &Finish{
 		base: base{
 			bot:    bot,

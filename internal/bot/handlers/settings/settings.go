@@ -12,6 +12,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/settings"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -27,7 +28,7 @@ type Settings struct {
 }
 
 func NewHandler(
-	bot *bot.Bot,
+	bot *gotelegrambotfx.Bot,
 	fsmService *fsm.Service,
 	groupsSvc *groups.Service,
 	settingsSvc *settings.Service,
@@ -45,7 +46,7 @@ func NewHandler(
 	}
 }
 
-func (s *Settings) Register(b *bot.Bot) {
+func (s *Settings) Register(b *gotelegrambotfx.Bot) {
 	// Register state-specific handlers
 	s.registerStateHandlers(b)
 
@@ -53,7 +54,7 @@ func (s *Settings) Register(b *bot.Bot) {
 	s.registerCallbackHandlers(b)
 }
 
-func (s *Settings) registerStateHandlers(b *bot.Bot) {
+func (s *Settings) registerStateHandlers(b *gotelegrambotfx.Bot) {
 	// Category selection handler
 	b.RegisterHandlerMatchFunc(
 		func(update *models.Update) bool {
@@ -90,7 +91,7 @@ func (s *Settings) registerStateHandlers(b *bot.Bot) {
 	)
 }
 
-func (s *Settings) registerCallbackHandlers(b *bot.Bot) {
+func (s *Settings) registerCallbackHandlers(b *gotelegrambotfx.Bot) {
 	// Settings list
 	b.RegisterHandlerMatchFunc(
 		func(update *models.Update) bool {

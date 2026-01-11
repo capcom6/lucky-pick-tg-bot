@@ -3,18 +3,18 @@ package handler
 import (
 	"context"
 
-	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/extractors"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
 )
 
 type Handler interface {
-	Register(bot *bot.Bot)
+	Register(bot *gotelegrambotfx.Bot)
 }
 
 type BaseHandler struct {
-	Bot *bot.Bot
+	Bot *gotelegrambotfx.Bot
 
 	Logger *zap.Logger
 }
@@ -35,22 +35,18 @@ func (h *BaseHandler) SendMessage(ctx context.Context, params *bot.SendMessagePa
 }
 
 func (h *BaseHandler) SendReply(ctx context.Context, update *models.Update, params *bot.SendMessageParams) {
-	fromID := extractors.From(update)
-
-	p := *params
-	p.ChatID = fromID
-	if p.ReplyParameters != nil {
-		rp := *p.ReplyParameters
-		switch {
-		case update != nil && update.Message != nil:
-			rp.MessageID = update.Message.ID
-		case update != nil && update.CallbackQuery != nil && update.CallbackQuery.Message.Message != nil:
-			rp.MessageID = update.CallbackQuery.Message.Message.ID
-		}
-		p.ReplyParameters = &rp
+	_, err := h.Bot.SendReply(
+		ctx,
+		update,
+		params,
+	)
+	if err != nil {
+		h.Logger.Error(
+			"failed to send reply",
+			zap.Any("params", params),
+			zap.Error(err),
+		)
 	}
-
-	h.SendMessage(ctx, &p)
 }
 
 func (h *BaseHandler) WithContext(update *models.Update) *zap.Logger {

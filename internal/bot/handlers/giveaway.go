@@ -17,6 +17,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/samber/lo"
@@ -61,7 +62,7 @@ type GiveawayScheduler struct {
 }
 
 func NewGiveawayScheduler(
-	bot *bot.Bot,
+	bot *gotelegrambotfx.Bot,
 	fsmService *fsm.Service,
 	usersSvc *users.Service,
 	groupsSvc *groups.Service,
@@ -82,7 +83,7 @@ func NewGiveawayScheduler(
 	}
 }
 
-func (g *GiveawayScheduler) Register(b *bot.Bot) {
+func (g *GiveawayScheduler) Register(b *gotelegrambotfx.Bot) {
 	// Register command handler
 	isEmptyState := state.NewStateFilter("", g.fsmService, g.Logger)
 	hasPrefixState := state.NewStatePrefixFilter(giveawayStatePrefix, g.fsmService, g.Logger)

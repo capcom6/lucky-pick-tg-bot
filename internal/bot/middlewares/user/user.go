@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/extractors"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx/extractors"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
