@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
-	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/extractors"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/keyboards"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx/extractors"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -33,7 +34,7 @@ type Handler struct {
 }
 
 func NewHandler(
-	bot *bot.Bot,
+	bot *gotelegrambotfx.Bot,
 	usersSvc *users.Service,
 	groupsSvc *groups.Service,
 	logger *zap.Logger,
@@ -49,7 +50,7 @@ func NewHandler(
 	}
 }
 
-func (h *Handler) Register(b *bot.Bot) {
+func (h *Handler) Register(b *gotelegrambotfx.Bot) {
 	// Register chat member handler (existing functionality)
 	b.RegisterHandlerMatchFunc(
 		h.filterChatMember,
