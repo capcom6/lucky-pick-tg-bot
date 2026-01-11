@@ -3,6 +3,7 @@ package cancel
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -12,7 +13,7 @@ type Handler struct {
 	handler.BaseHandler
 }
 
-func NewHandler(bot *bot.Bot, logger *zap.Logger) handler.Handler {
+func NewHandler(bot *gotelegrambotfx.Bot, logger *zap.Logger) handler.Handler {
 	return &Handler{
 		BaseHandler: handler.BaseHandler{
 			Bot:    bot,
@@ -22,7 +23,7 @@ func NewHandler(bot *bot.Bot, logger *zap.Logger) handler.Handler {
 }
 
 // Register implements handler.Handler.
-func (h *Handler) Register(b *bot.Bot) {
+func (h *Handler) Register(b *gotelegrambotfx.Bot) {
 	b.RegisterHandler(
 		bot.HandlerTypeMessageText,
 		"cancel",

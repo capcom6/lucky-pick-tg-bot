@@ -9,6 +9,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/middlewares/user"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/fsm"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-core-fx/logger"
 	"github.com/go-telegram/bot"
 	"go.uber.org/fx"
@@ -36,7 +37,7 @@ func Module() fx.Option {
 			},
 		),
 		handlers.Module(),
-		fx.Invoke(func(lc fx.Lifecycle, b *bot.Bot, log *zap.Logger) {
+		fx.Invoke(func(lc fx.Lifecycle, b *gotelegrambotfx.Bot, log *zap.Logger) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
 					RegisterCommands(ctx, b, log)

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -17,7 +18,7 @@ type Publish struct {
 	giveawaysSvc *giveaways.Service
 }
 
-func NewPublish(bot *bot.Bot, giveawaysSvc *giveaways.Service, logger *zap.Logger) Task {
+func NewPublish(bot *gotelegrambotfx.Bot, giveawaysSvc *giveaways.Service, logger *zap.Logger) Task {
 	return &Publish{
 		base: base{
 			bot:    bot,

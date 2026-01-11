@@ -8,6 +8,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"go.uber.org/zap"
@@ -23,7 +24,7 @@ type Participant struct {
 }
 
 func NewParticipant(
-	bot *bot.Bot,
+	bot *gotelegrambotfx.Bot,
 	usersSvc *users.Service,
 	giveawaysSvc *giveaways.Service,
 	logger *zap.Logger,
@@ -39,7 +40,7 @@ func NewParticipant(
 	}
 }
 
-func (p *Participant) Register(b *bot.Bot) {
+func (p *Participant) Register(b *gotelegrambotfx.Bot) {
 	b.RegisterHandlerMatchFunc(p.filterParticipateCallback, adaptor.New(p.handleParticipate))
 }
 
