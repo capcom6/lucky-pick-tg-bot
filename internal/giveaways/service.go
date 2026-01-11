@@ -154,7 +154,11 @@ func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 			actionType = "giveaway.cancelled"
 			actionDesc = fmt.Sprintf("Cancel giveaway: %s", winErr.Error())
 		} else {
-			logger.Debug("winner selected successfully", zap.Int64("giveaway_id", giveaway.ID), zap.Int64("winner_user_id", winner.UserID))
+			logger.Debug(
+				"winner selected successfully",
+				zap.Int64("giveaway_id", giveaway.ID),
+				zap.Int64("winner_user_id", winner.UserID),
+			)
 			newStatus = NewFinishGiveaway(giveaway.ID, winner.UserID)
 			actionType = "giveaway.finished"
 			actionDesc = "Finish giveaway"

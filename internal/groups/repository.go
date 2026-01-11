@@ -68,6 +68,10 @@ func (r *Repository) CreateOrUpdate(ctx context.Context, group *GroupDraft, admi
 }
 
 func (r *Repository) SelectByIDs(ctx context.Context, ids []int64) ([]GroupWithSettings, error) {
+	if len(ids) == 0 {
+		return []GroupWithSettings{}, nil
+	}
+
 	var groups []GroupModel
 	if err := r.db.NewSelect().
 		Model(&groups).
@@ -156,7 +160,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, telegramID int64, isActiv
 	return nil
 }
 
-// UpdateSettings updates the settings of a group.
+// UpdateSettings updates multiple settings of a group at once.
 func (r *Repository) UpdateSettings(ctx context.Context, groupID int64, settings map[string]string) error {
 	rows := lo.MapToSlice(
 		settings,
@@ -171,6 +175,39 @@ func (r *Repository) UpdateSettings(ctx context.Context, groupID int64, settings
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to update settings: %w", err)
+	}
+
+	return nil
+}
+
+// GetAllSettings returns all settings for a group as a map.
+func (r *Repository) GetAllSettings(ctx context.Context, groupID int64) (map[string]string, error) {
+	var settings []settingsModel
+	err := r.db.NewSelect().
+		Model(&settings).
+		Where("group_id = ?", groupID).
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get settings for group %d: %w", groupID, err)
+	}
+
+	result := make(map[string]string, len(settings))
+	for _, setting := range settings {
+		result[setting.Key] = setting.Value
+	}
+
+	return result, nil
+}
+
+// DeleteSetting removes a setting for a group.
+func (r *Repository) DeleteSetting(ctx context.Context, groupID int64, key string) error {
+	_, err := r.db.NewDelete().
+		Model((*settingsModel)(nil)).
+		Where("group_id = ?", groupID).
+		Where("key = ?", key).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete setting %s: %w", key, err)
 	}
 
 	return nil

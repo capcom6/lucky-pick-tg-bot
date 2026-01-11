@@ -8,6 +8,7 @@ import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/discussions"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/giveaways"
+	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/samber/lo"
@@ -23,7 +24,7 @@ type Questions struct {
 }
 
 func NewQuestions(
-	bot *bot.Bot,
+	bot *gotelegrambotfx.Bot,
 	giveawaysSvc *giveaways.Service,
 	discussionsSvc *discussions.Service,
 	actionsSvc *actions.Service,
