@@ -31,9 +31,11 @@ func NewMiddleware(svc *fsm.Service, logger *zap.Logger) bot.Middleware {
 			state, err := svc.Get(ctx, userID)
 			if err != nil {
 				logger.Error("get state", zap.Error(err))
-				(&gotelegrambotfx.Bot{Bot: b}).SendReply(ctx, update, &bot.SendMessageParams{
+				if _, sendErr := (&gotelegrambotfx.Bot{Bot: b}).SendReply(ctx, update, &bot.SendMessageParams{
 					Text: "❌ Failed to get state. Please try again.",
-				})
+				}); sendErr != nil {
+					logger.Error("failed to send error message", zap.Error(sendErr))
+				}
 				return
 			}
 
