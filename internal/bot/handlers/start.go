@@ -37,8 +37,6 @@ func (s *Start) handleStart(ctx *adaptor.Context, update *models.Update) {
 		return
 	}
 
-	logger := s.WithContext(update)
-
 	user, err := ctx.User()
 	if err != nil {
 		s.HandleError(ctx, update, err)
@@ -53,13 +51,11 @@ func (s *Start) handleStart(ctx *adaptor.Context, update *models.Update) {
 		displayName = "пользователь"
 	}
 
-	if _, replyErr := s.Bot.SendMessage(
+	s.SendMessage(
 		ctx,
 		&bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
 			Text:   "Привет, " + displayName + "!\n\nДобро пожаловать в Lucky Pick Bot!\n\nТеперь ты сможешь получать уведомления о выигрыше здесь.",
 		},
-	); replyErr != nil {
-		logger.Error("failed to send reply message", zap.Error(replyErr))
-	}
+	)
 }
