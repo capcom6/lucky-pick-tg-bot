@@ -204,7 +204,7 @@ func (r *Repository) DeleteSetting(ctx context.Context, groupID int64, key strin
 	_, err := r.db.NewDelete().
 		Model((*settingsModel)(nil)).
 		Where("group_id = ?", groupID).
-		Where("key = ?", key).
+		Where("`key` = ?", key).
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete setting %s: %w", key, err)
