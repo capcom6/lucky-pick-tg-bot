@@ -23,7 +23,8 @@ func NewMiddleware(logger *zap.Logger) bot.Middleware {
 				logger.Error("failed to answer callback query", zap.Error(err))
 			}
 
-			if update.CallbackQuery.Message.Message != nil {
+			if update.CallbackQuery.Message.Message != nil &&
+				update.CallbackQuery.Message.Message.Chat.Type == models.ChatTypePrivate {
 				if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{
 					ChatID:    update.CallbackQuery.Message.Message.Chat.ID,
 					MessageID: update.CallbackQuery.Message.Message.ID,
