@@ -30,6 +30,7 @@ const (
 	giveawayStateWaitGroup        = giveawayStatePrefix + "wait_group"
 	giveawayStateWaitPhoto        = giveawayStatePrefix + "wait_photo"
 	giveawayStateWaitPublishDate  = giveawayStatePrefix + "wait_publish_date"
+	giveawayStateWaitDescription  = giveawayStatePrefix + "wait_description"
 	giveawayStateWaitConfirmation = giveawayStatePrefix + "wait_confirmation"
 
 	// Command constants.
@@ -38,6 +39,7 @@ const (
 
 	giveawayCallbackGroup   = "giveaway:group:"
 	giveawayCallbackConfirm = "giveaway:confirm"
+	giveawayCallbackEdit    = "giveaway:edit_description"
 	giveawayCallbackCancel  = "giveaway:cancel"
 
 	// Giveaway data constants.
@@ -84,7 +86,6 @@ func NewGiveawayScheduler(
 }
 
 func (g *GiveawayScheduler) Register(b *gotelegrambotfx.Bot) {
-	// Register command handler
 	isEmptyState := state.NewStateFilter("", g.fsmService, g.Logger)
 	hasPrefixState := state.NewStatePrefixFilter(giveawayStatePrefix, g.fsmService, g.Logger)
 	commandFilter := func(command string) bot.MatchFunc {
@@ -106,6 +107,17 @@ func (g *GiveawayScheduler) Register(b *gotelegrambotfx.Bot) {
 		}
 	}
 
+	g.registerCommandHandlers(b, isEmptyState, hasPrefixState, commandFilter, combinator)
+	g.registerMessageHandlers(b, combinator)
+	g.registerCallbackHandlers(b, hasPrefixState, combinator)
+}
+
+func (g *GiveawayScheduler) registerCommandHandlers(
+	b *gotelegrambotfx.Bot,
+	isEmptyState, hasPrefixState bot.MatchFunc,
+	commandFilter func(string) bot.MatchFunc,
+	combinator func(...bot.MatchFunc) bot.MatchFunc,
+) {
 	b.RegisterHandlerMatchFunc(
 		combinator(
 			isEmptyState,
@@ -121,7 +133,12 @@ func (g *GiveawayScheduler) Register(b *gotelegrambotfx.Bot) {
 		),
 		g.handleCancelCommand,
 	)
+}
 
+func (g *GiveawayScheduler) registerMessageHandlers(
+	b *gotelegrambotfx.Bot,
+	combinator func(...bot.MatchFunc) bot.MatchFunc,
+) {
 	b.RegisterHandlerMatchFunc(
 		combinator(
 			state.NewStateFilter(giveawayStateWaitGroup, g.fsmService, g.Logger),
@@ -153,7 +170,22 @@ func (g *GiveawayScheduler) Register(b *gotelegrambotfx.Bot) {
 		g.handlePublishDate,
 	)
 
-	// Add callback query handlers after the cancel command registration
+	b.RegisterHandlerMatchFunc(
+		combinator(
+			state.NewStateFilter(giveawayStateWaitDescription, g.fsmService, g.Logger),
+			func(update *models.Update) bool {
+				return update.Message != nil
+			},
+		),
+		g.handleDescriptionEdit,
+	)
+}
+
+func (g *GiveawayScheduler) registerCallbackHandlers(
+	b *gotelegrambotfx.Bot,
+	hasPrefixState bot.MatchFunc,
+	combinator func(...bot.MatchFunc) bot.MatchFunc,
+) {
 	b.RegisterHandlerMatchFunc(
 		combinator(
 			hasPrefixState,
@@ -163,6 +195,17 @@ func (g *GiveawayScheduler) Register(b *gotelegrambotfx.Bot) {
 			},
 		),
 		adaptor.New(g.handleConfirmation),
+	)
+
+	b.RegisterHandlerMatchFunc(
+		combinator(
+			hasPrefixState,
+			func(update *models.Update) bool {
+				return update.CallbackQuery != nil &&
+					update.CallbackQuery.Data == giveawayCallbackEdit
+			},
+		),
+		g.handleDescriptionEditPrompt,
 	)
 
 	b.RegisterHandlerMatchFunc(
@@ -387,8 +430,12 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 		return
 	}
 
-	state.AddData(giveawayDataDescription, state.GetData(giveawayDataOriginalDescription))
-	if settings.LLMDescription {
+	if state.GetData(giveawayDataDescription) == "" {
+		state.AddData(giveawayDataDescription, state.GetData(giveawayDataOriginalDescription))
+	}
+
+	if settings.LLMDescription &&
+		state.GetData(giveawayDataDescription) == state.GetData(giveawayDataOriginalDescription) {
 		photo, downErr := g.downloadPhoto(ctx, state.GetData(giveawayDataPhotoID))
 		if downErr != nil {
 			g.Logger.Error("failed to download photo", zap.Error(downErr))
@@ -445,6 +492,12 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
 				{
+					Text:         "✏️ Edit description",
+					CallbackData: giveawayCallbackEdit,
+				},
+			},
+			{
+				{
 					Text:         "✅ Confirm",
 					CallbackData: giveawayCallbackConfirm,
 				},
@@ -466,6 +519,44 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 	if err != nil {
 		g.Logger.Error("failed to send message with keyboard", zap.Error(err))
 	}
+}
+
+func (g *GiveawayScheduler) handleDescriptionEditPrompt(ctx context.Context, _ *bot.Bot, update *models.Update) {
+	logger := g.WithContext(update)
+
+	state, err := state.FromContext(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		g.HandleError(ctx, update, err)
+		return
+	}
+
+	state.SetName(giveawayStateWaitDescription)
+	g.SendReply(ctx, update, &bot.SendMessageParams{
+		Text: "📝 Send a new description for the giveaway.",
+	})
+}
+
+func (g *GiveawayScheduler) handleDescriptionEdit(ctx context.Context, _ *bot.Bot, update *models.Update) {
+	logger := g.WithContext(update)
+
+	state, err := state.FromContext(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		g.HandleError(ctx, update, err)
+		return
+	}
+
+	if update.Message == nil || update.Message.Text == "" {
+		g.SendReply(ctx, update, &bot.SendMessageParams{
+			Text: "📝 Please send a text description.",
+		})
+		return
+	}
+
+	state.AddData(giveawayDataDescription, update.Message.Text)
+	state.SetName(giveawayStateWaitConfirmation)
+	g.showPreviewAndConfirmation(ctx, update.Message.Chat.ID, state)
 }
 
 func (g *GiveawayScheduler) handleConfirmation(ctx *adaptor.Context, update *models.Update) {
