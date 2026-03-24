@@ -116,6 +116,20 @@ func (s *Service) ListApplicationFinished(ctx context.Context) ([]Giveaway, erro
 	return mapGiveaways(items, grps)
 }
 
+func (s *Service) ListScheduledByGroupIDs(ctx context.Context, groupIDs []int64) ([]Giveaway, error) {
+	items, err := s.giveaways.ListScheduledByGroupIDs(ctx, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	grps, err := s.selectGroups(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapGiveaways(items, grps)
+}
+
 func (s *Service) ListWinners(ctx context.Context) ([]Winner, error) {
 	giveaways, err := s.giveaways.ListResultsWait(ctx)
 	if err != nil {

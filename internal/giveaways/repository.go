@@ -49,6 +49,26 @@ func (r *Repository) ListReadyToPublish(ctx context.Context) ([]GiveawayModel, e
 	return giveaways, nil
 }
 
+func (r *Repository) ListScheduledByGroupIDs(ctx context.Context, groupIDs []int64) ([]GiveawayModel, error) {
+	giveaways := make([]GiveawayModel, 0)
+	if len(groupIDs) == 0 {
+		return giveaways, nil
+	}
+
+	if err := r.db.NewSelect().
+		Model(&giveaways).
+		Relation("Group").
+		Where("ga.status = ?", StatusScheduled).
+		Where("ga.group_id IN (?)", bun.In(groupIDs)).
+		Where("g.is_active = ?", true).
+		Order("ga.publish_date ASC").
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("failed to get scheduled giveaways by groups: %w", err)
+	}
+
+	return giveaways, nil
+}
+
 func (r *Repository) ListActive(ctx context.Context) ([]GiveawayModel, error) {
 	giveaways := make([]GiveawayModel, 0)
 	if err := r.db.NewSelect().
