@@ -244,7 +244,20 @@ func (d DurationValue) String() string {
 }
 
 // ParseDuration parses a duration from HH:MM:SS format.
+//
+// Legacy format support:
+//   - "N" where N is a non-negative integer (interpreted as hours).
 func ParseDuration(s string) (DurationValue, error) {
+	s = strings.TrimSpace(s)
+
+	if hours, ok, err := parseLegacyDurationHours(s); ok {
+		if err != nil {
+			return DurationValue{}, err
+		}
+
+		return DurationValue{time.Duration(hours) * time.Hour}, nil
+	}
+
 	const partsCount = 3
 
 	parts := strings.Split(s, ":")
@@ -281,6 +294,19 @@ func ParseDuration(s string) (DurationValue, error) {
 	return DurationValue{duration}, nil
 }
 
-func Ptr[T any](value T) *T {
-	return &value
+func parseLegacyDurationHours(s string) (int, bool, error) {
+	if strings.Contains(s, ":") {
+		return 0, false, nil
+	}
+
+	hours, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, true, fmt.Errorf("%w: invalid duration format: %w", ErrValidationFailed, err)
+	}
+
+	if hours < 0 {
+		return 0, true, fmt.Errorf("%w: hours must be non-negative", ErrValidationFailed)
+	}
+
+	return hours, true, nil
 }
