@@ -18,6 +18,7 @@ func Module() fx.Option {
 		fx.Provide(fx.Annotate(NewParticipant, fx.ResultTags(`group:"handlers"`))),
 		fx.Provide(fx.Annotate(groups.NewHandler, fx.ResultTags(`group:"handlers"`))),
 		fx.Provide(fx.Annotate(NewGiveawayScheduler, fx.ResultTags(`group:"handlers"`))),
+		fx.Provide(fx.Annotate(NewScheduled, fx.ResultTags(`group:"handlers"`))),
 		fx.Provide(fx.Annotate(settings.NewHandler, fx.ResultTags(`group:"handlers"`))),
 		fx.Provide(fx.Annotate(cancel.NewHandler, fx.ResultTags(`group:"handlers"`))),
 		fx.Invoke(fx.Annotate(

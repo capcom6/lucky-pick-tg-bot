@@ -14,6 +14,7 @@ func RegisterCommands(ctx context.Context, b *gotelegrambotfx.Bot, logger *zap.L
 	commands := []models.BotCommand{
 		{Command: "start", Description: "Start the bot"},
 		{Command: "giveaway", Description: "Create a new giveaway"},
+		{Command: "scheduled", Description: "View scheduled giveaways"},
 		{Command: "cancel", Description: "Cancel current operation"},
 		{Command: "groups", Description: "List your groups"},
 	}
