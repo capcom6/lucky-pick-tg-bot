@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/settings"
+	"github.com/samber/lo"
 )
 
 type Settings struct {
@@ -43,8 +44,8 @@ func SettingDefinitions() []settings.SettingDefinition {
 			Type:         settings.Duration,
 			DefaultValue: "06:00:00",
 			Validation: &settings.SettingValidation{
-				MinValue: settings.Ptr(float64(time.Hour.Seconds())),      // Minimum 1 hour
-				MaxValue: settings.Ptr(float64(24 * time.Hour.Seconds())), // Maximum 24 hours
+				MinValue: lo.ToPtr(float64(time.Hour.Seconds())),      // Minimum 1 hour
+				MaxValue: lo.ToPtr(float64(24 * time.Hour.Seconds())), // Maximum 24 hours
 				Required: false,
 			},
 		},
