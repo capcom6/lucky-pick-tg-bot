@@ -76,6 +76,7 @@ func (p *Publish) publish(ctx context.Context, giveaway *giveaways.Giveaway) err
 		Photo: &models.InputFileString{
 			Data: giveaway.PhotoFileID,
 		},
+		HasSpoiler:  giveaway.PhotoHasSpoiler,
 		Caption:     caption,
 		ParseMode:   models.ParseModeMarkdown,
 		ReplyMarkup: markup,

@@ -26,6 +26,7 @@ type GiveawayModel struct {
 	GroupID             int64     `bun:"group_id,notnull"`
 	AdminUserID         int64     `bun:"admin_user_id,notnull"`
 	PhotoFileID         string    `bun:"photo_file_id,notnull"`
+	PhotoHasSpoiler     bool      `bun:"photo_has_spoiler,notnull,default:false"`
 	Description         string    `bun:"description,notnull"`
 	OriginalDescription string    `bun:"original_description,notnull"`
 	PublishDate         time.Time `bun:"publish_date,notnull"`
@@ -51,6 +52,7 @@ func newGiveawayModel(giveaway GiveawayPrepared) *GiveawayModel {
 		GroupID:             giveaway.GroupID,
 		AdminUserID:         giveaway.AdminUserID,
 		PhotoFileID:         giveaway.PhotoFileID,
+		PhotoHasSpoiler:     giveaway.PhotoHasSpoiler,
 		Description:         giveaway.Description,
 		OriginalDescription: giveaway.OriginalDescription,
 		PublishDate:         giveaway.PublishDate,

@@ -14,6 +14,7 @@ type GiveawayDraft struct {
 	GroupID            int64
 	AdminUserID        int64
 	PhotoFileID        string
+	PhotoHasSpoiler    bool
 	Description        string
 	PublishDate        time.Time
 	ApplicationEndDate time.Time
@@ -65,6 +66,7 @@ func newGiveaway(item GiveawayModel, group groups.GroupWithSettings) *Giveaway {
 			GroupID:            item.GroupID,
 			AdminUserID:        item.AdminUserID,
 			PhotoFileID:        item.PhotoFileID,
+			PhotoHasSpoiler:    item.PhotoHasSpoiler,
 			Description:        item.Description,
 			PublishDate:        item.PublishDate,
 			ApplicationEndDate: item.ApplicationEndDate,

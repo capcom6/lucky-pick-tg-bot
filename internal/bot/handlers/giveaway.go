@@ -47,6 +47,7 @@ const (
 	giveawayDataPhotoID             = "photoID"
 	giveawayDataDescription         = "description"
 	giveawayDataOriginalDescription = "original_description"
+	giveawayDataPhotoHasSpoiler     = "photoHasSpoiler"
 	giveawayDataPublishDate         = "publishDate"
 	giveawayDataApplicationEndDate  = "applicationEndDate"
 	giveawayDataResultsDate         = "resultsDate"
@@ -365,6 +366,7 @@ func (g *GiveawayScheduler) handlePhotoAndDescription(ctx context.Context, _ *bo
 	state.SetName(giveawayStateWaitPublishDate)
 	state.AddData(giveawayDataPhotoID, photo.FileID)
 	state.AddData(giveawayDataOriginalDescription, update.Message.Caption)
+	state.AddData(giveawayDataPhotoHasSpoiler, strconv.FormatBool(update.Message.HasMediaSpoiler))
 
 	// Request start time
 	g.SendReply(
@@ -512,6 +514,7 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 	_, err = g.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
 		ChatID:      chatID,
 		Photo:       &models.InputFileString{Data: state.GetData(giveawayDataPhotoID)},
+		HasSpoiler:  state.GetData(giveawayDataPhotoHasSpoiler) == "true",
 		Caption:     previewText,
 		ParseMode:   models.ParseModeMarkdown,
 		ReplyMarkup: markup,
@@ -617,6 +620,7 @@ func (g *GiveawayScheduler) handleConfirmation(ctx *adaptor.Context, update *mod
 			GroupID:            groupID,
 			AdminUserID:        user.ID,
 			PhotoFileID:        state.GetData(giveawayDataPhotoID),
+			PhotoHasSpoiler:    state.GetData(giveawayDataPhotoHasSpoiler) == "true",
 			Description:        state.GetData(giveawayDataDescription),
 			PublishDate:        publishDate,
 			ApplicationEndDate: applicationEndDate,
