@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload to S3
         if: github.actor != 'dependabot[bot]'
-        uses: capcom6/upload-s3-action@master
+        uses: capcom6/upload-s3-action@c4fae9e0868ea2a99ef8e9318e93821e84086955 # v2.0.0
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
         with:
