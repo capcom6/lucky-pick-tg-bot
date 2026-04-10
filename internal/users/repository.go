@@ -33,18 +33,16 @@ func (r *Repository) CreateOrUpdate(ctx context.Context, user *UserModel) (bool,
 			return fmt.Errorf("failed to get user by Telegram ID: %w", err)
 		}
 
-		_, err := tx.NewInsert().
-			Model(user).
-			On("DUPLICATE KEY UPDATE").
-			Returning("*").
-			Exec(ctx)
-
-		if err != nil {
-			return fmt.Errorf("failed to insert user: %w", err)
-		}
-
 		if existing.ID == 0 {
 			created = true
+			if err := r.insert(ctx, tx, user); err != nil {
+				return err
+			}
+		} else {
+			user.ID = existing.ID
+			if err := r.update(ctx, tx, user); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -55,4 +53,58 @@ func (r *Repository) CreateOrUpdate(ctx context.Context, user *UserModel) (bool,
 	}
 
 	return created, nil
+}
+
+func (r *Repository) insert(ctx context.Context, tx bun.Tx, user *UserModel) error {
+	_, err := tx.NewInsert().
+		Model(user).
+		Exec(ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert user: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) update(ctx context.Context, tx bun.Tx, user *UserModel) error {
+	_, err := tx.NewUpdate().
+		Model(user).
+		OmitZero().
+		WherePK().
+		Exec(ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) GetByID(ctx context.Context, userID int64) (*UserModel, error) {
+	user := new(UserModel)
+	if err := r.db.NewSelect().
+		Model(user).
+		Where("id = ?", userID).
+		Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+
+	return user, nil
+}
+
+func (r *Repository) SetActive(ctx context.Context, userID int64, isActive bool) error {
+	if _, err := r.db.NewUpdate().
+		Model((*UserModel)(nil)).
+		Set("is_active = ?", isActive).
+		Where("id = ?", userID).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("failed to update user activity: %w", err)
+	}
+
+	return nil
 }

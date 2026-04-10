@@ -26,6 +26,5 @@ func NewUserModel(telegramUserID int64, username, firstName, lastName string) *U
 		Username:       username,
 		FirstName:      firstName,
 		LastName:       lastName,
-		IsActive:       true,
 	}
 }

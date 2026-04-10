@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +31,7 @@ const (
 	giveawayStateWaitGroup        = giveawayStatePrefix + "wait_group"
 	giveawayStateWaitPhoto        = giveawayStatePrefix + "wait_photo"
 	giveawayStateWaitPublishDate  = giveawayStatePrefix + "wait_publish_date"
+	giveawayStateWaitType         = giveawayStatePrefix + "wait_type"
 	giveawayStateWaitDescription  = giveawayStatePrefix + "wait_description"
 	giveawayStateWaitConfirmation = giveawayStatePrefix + "wait_confirmation"
 
@@ -38,6 +40,7 @@ const (
 	cancelCommand   = "/cancel"
 
 	giveawayCallbackGroup   = "giveaway:group:"
+	giveawayCallbackType    = "giveaway:type:"
 	giveawayCallbackConfirm = "giveaway:confirm"
 	giveawayCallbackEdit    = "giveaway:edit_description"
 	giveawayCallbackCancel  = "giveaway:cancel"
@@ -51,6 +54,7 @@ const (
 	giveawayDataPublishDate         = "publishDate"
 	giveawayDataApplicationEndDate  = "applicationEndDate"
 	giveawayDataResultsDate         = "resultsDate"
+	giveawayDataIsAnonymous         = "isAnonymous"
 )
 
 // GiveawayScheduler handles giveaway scheduling flow.
@@ -187,6 +191,17 @@ func (g *GiveawayScheduler) registerCallbackHandlers(
 	hasPrefixState bot.MatchFunc,
 	combinator func(...bot.MatchFunc) bot.MatchFunc,
 ) {
+	b.RegisterHandlerMatchFunc(
+		combinator(
+			state.NewStateFilter(giveawayStateWaitType, g.fsmService, g.Logger),
+			func(update *models.Update) bool {
+				return update.CallbackQuery != nil &&
+					strings.HasPrefix(update.CallbackQuery.Data, giveawayCallbackType)
+			},
+		),
+		adaptor.New(g.handleGiveawayType),
+	)
+
 	b.RegisterHandlerMatchFunc(
 		combinator(
 			hasPrefixState,
@@ -414,12 +429,65 @@ func (g *GiveawayScheduler) handlePublishDate(ctx context.Context, _ *bot.Bot, u
 	const duration = 24 * time.Hour
 	const resultsDuration = 26 * time.Hour
 
-	state.SetName(giveawayStateWaitConfirmation)
+	state.SetName(giveawayStateWaitType)
 	state.AddData(giveawayDataPublishDate, formatDateTime(startTime))
 	state.AddData(giveawayDataApplicationEndDate, formatDateTime(startTime.Add(duration)))
 	state.AddData(giveawayDataResultsDate, formatDateTime(startTime.Add(resultsDuration)))
 
-	g.showPreviewAndConfirmation(ctx, update.Message.Chat.ID, state)
+	g.showGiveawayTypeSelection(ctx, update.Message.Chat.ID)
+}
+
+func (g *GiveawayScheduler) showGiveawayTypeSelection(ctx context.Context, chatID int64) {
+	markup := &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{
+					Text:         "🌐 Публичный (по умолчанию)",
+					CallbackData: giveawayCallbackType + "public",
+				},
+			},
+			{
+				{
+					Text:         "🕶 Анонимный",
+					CallbackData: giveawayCallbackType + "anonymous",
+				},
+			},
+		},
+	}
+
+	g.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      chatID,
+		Text:        "Выберите тип розыгрыша:",
+		ReplyMarkup: markup,
+	})
+}
+
+func (g *GiveawayScheduler) handleGiveawayType(ctx *adaptor.Context, update *models.Update) {
+	if update.CallbackQuery == nil {
+		return
+	}
+
+	logger := g.WithContext(update)
+	state, err := state.FromContext(ctx)
+	if err != nil {
+		logger.Error("failed to get state", zap.Error(err))
+		g.HandleError(ctx, update, err)
+		return
+	}
+
+	giveawayType := strings.TrimPrefix(update.CallbackQuery.Data, giveawayCallbackType)
+	isAnonymous := giveawayType == "anonymous"
+
+	state.SetName(giveawayStateWaitConfirmation)
+	state.AddData(giveawayDataIsAnonymous, strconv.FormatBool(isAnonymous))
+
+	if update.CallbackQuery.Message.Message == nil {
+		logger.Error("invalid update: missing callback message")
+		g.HandleError(ctx, update, errors.New("missing callback message")) //nolint:err113 // for log only
+		return
+	}
+
+	g.showPreviewAndConfirmation(ctx, update.CallbackQuery.Message.Message.Chat.ID, state)
 }
 
 func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chatID int64, state *fsm.State) {
@@ -476,14 +544,10 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 		state.AddData(giveawayDataDescription, description)
 	}
 
-	previewText := fmt.Sprintf(`🎯 *Preview*
-
-📱 Group: %s
-📝 Description: %s
-⏰ Start time: %s
-📝 Application end: %s
-🎉 Results: %s`,
+	previewText := fmt.Sprintf(
+		giveawayPreviewTemplate,
 		bot.EscapeMarkdown(group.Title),
+		bot.EscapeMarkdown(g.giveawayTypeLabel(state.GetData(giveawayDataIsAnonymous))),
 		bot.EscapeMarkdown(state.GetData(giveawayDataDescription)),
 		bot.EscapeMarkdown(state.GetData(giveawayDataPublishDate)),
 		bot.EscapeMarkdown(state.GetData(giveawayDataApplicationEndDate)),
@@ -514,7 +578,7 @@ func (g *GiveawayScheduler) showPreviewAndConfirmation(ctx context.Context, chat
 	_, err = g.Bot.SendPhoto(ctx, &bot.SendPhotoParams{
 		ChatID:      chatID,
 		Photo:       &models.InputFileString{Data: state.GetData(giveawayDataPhotoID)},
-		HasSpoiler:  state.GetData(giveawayDataPhotoHasSpoiler) == "true",
+		HasSpoiler:  state.GetData(giveawayDataPhotoHasSpoiler) == trueValue,
 		Caption:     previewText,
 		ParseMode:   models.ParseModeMarkdown,
 		ReplyMarkup: markup,
@@ -620,12 +684,12 @@ func (g *GiveawayScheduler) handleConfirmation(ctx *adaptor.Context, update *mod
 			GroupID:            groupID,
 			AdminUserID:        user.ID,
 			PhotoFileID:        state.GetData(giveawayDataPhotoID),
-			PhotoHasSpoiler:    state.GetData(giveawayDataPhotoHasSpoiler) == "true",
+			PhotoHasSpoiler:    state.GetData(giveawayDataPhotoHasSpoiler) == trueValue,
 			Description:        state.GetData(giveawayDataDescription),
 			PublishDate:        publishDate,
 			ApplicationEndDate: applicationEndDate,
 			ResultsDate:        resultsDate,
-			IsAnonymous:        false,
+			IsAnonymous:        state.GetData(giveawayDataIsAnonymous) == trueValue,
 		},
 		OriginalDescription: state.GetData(giveawayDataOriginalDescription),
 	}); createErr != nil {
@@ -727,4 +791,12 @@ func parseDateTime(timeStr string) (time.Time, error) {
 
 func formatDateTime(t time.Time) string {
 	return t.Format("2006-01-02 15:04")
+}
+
+func (g *GiveawayScheduler) giveawayTypeLabel(isAnonymous string) string {
+	if isAnonymous == trueValue {
+		return "Анонимный"
+	}
+
+	return "Публичный"
 }
