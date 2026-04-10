@@ -170,3 +170,16 @@ func (r *Repository) Create(ctx context.Context, giveaway GiveawayPrepared) erro
 
 	return nil
 }
+
+func (r *Repository) ReopenForReroll(ctx context.Context, giveawayID int64) error {
+	if _, err := r.db.NewUpdate().
+		Model((*GiveawayModel)(nil)).
+		Set("status = ?", StatusClosed).
+		Set("winner_user_id = NULL").
+		Where("id = ?", giveawayID).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("failed to reopen giveaway for reroll: %w", err)
+	}
+
+	return nil
+}

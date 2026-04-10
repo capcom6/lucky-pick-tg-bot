@@ -70,6 +70,9 @@ func (p *Publish) publish(ctx context.Context, giveaway *giveaways.Giveaway) err
 		bot.EscapeMarkdown(giveaway.ApplicationEndDate.Format("02.01.2006 15:04")),
 		bot.EscapeMarkdown(giveaway.ResultsDate.Format("02.01.2006 15:04")),
 	)
+	if giveaway.IsAnonymous {
+		caption += "\n\n" + bot.EscapeMarkdown("🔒 Анонимный розыгрыш: имя победителя не будет опубликовано в чате.")
+	}
 
 	params := &bot.SendPhotoParams{
 		ChatID: giveaway.Group.TelegramID,

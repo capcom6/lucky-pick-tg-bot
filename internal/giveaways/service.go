@@ -10,6 +10,7 @@ import (
 
 	"github.com/capcom6/lucky-pick-tg-bot/internal/actions"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/groups"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
@@ -249,7 +250,7 @@ func (s *Service) Close(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Service) Participate(ctx context.Context, giveawayID int64, userID int64) error {
+func (s *Service) Participate(ctx context.Context, giveawayID int64, user users.User) error {
 	giveaway, err := s.giveaways.GetByID(ctx, giveawayID)
 	if err != nil {
 		return err
@@ -265,31 +266,45 @@ func (s *Service) Participate(ctx context.Context, giveawayID int64, userID int6
 		return ErrNotFound
 	}
 
-	if addErr := s.giveaways.AddParticipant(ctx, NewParticipantModel(giveawayID, userID)); addErr != nil {
+	if giveaway.IsAnonymous && !user.IsActive {
+		return ErrUserNotRegistered
+	}
+
+	if addErr := s.giveaways.AddParticipant(ctx, NewParticipantModel(giveawayID, user.ID)); addErr != nil {
 		return addErr
 	}
 
 	// Log the action
-	s.actionsSvc.LogAction(ctx, "giveaway.participated", userID, giveawayID, "Participate in giveaway")
+	s.actionsSvc.LogAction(ctx, "giveaway.participated", user.ID, giveawayID, "Participate in giveaway")
 
 	return nil
 }
 
 func (s *Service) randomWinner(_ context.Context, giveaway *GiveawayModel) (*ParticipantModel, error) {
-	if len(giveaway.Participants) == 0 {
+	participants := giveaway.Participants
+	if giveaway.IsAnonymous {
+		participants = lo.Filter(
+			participants,
+			func(item *ParticipantModel, _ int) bool {
+				return item.User != nil && item.User.IsActive
+			},
+		)
+	}
+
+	if len(participants) == 0 {
 		return nil, ErrNotEnoughParticipants
 	}
 
-	if len(giveaway.Participants) == 1 {
-		return giveaway.Participants[0], nil
+	if len(participants) == 1 {
+		return participants[0], nil
 	}
 
-	idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(giveaway.Participants))))
+	idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(participants))))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random number: %w", err)
 	}
 
-	return giveaway.Participants[idx.Int64()], nil
+	return participants[idx.Int64()], nil
 }
 
 func (s *Service) selectGroups(ctx context.Context, items []GiveawayModel) (map[int64]groups.GroupWithSettings, error) {
@@ -326,4 +341,12 @@ func (s *Service) SettingsForGroup(ctx context.Context, id int64) (*Settings, er
 	}
 
 	return &settings, nil
+}
+
+func (s *Service) ReopenForReroll(ctx context.Context, giveawayID int64) error {
+	if err := s.giveaways.ReopenForReroll(ctx, giveawayID); err != nil {
+		return fmt.Errorf("failed to reopen giveaway for reroll: %w", err)
+	}
+
+	return nil
 }

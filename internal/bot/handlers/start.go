@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/adaptor"
 	"github.com/capcom6/lucky-pick-tg-bot/internal/bot/handler"
+	"github.com/capcom6/lucky-pick-tg-bot/internal/users"
 	"github.com/capcom6/lucky-pick-tg-bot/pkg/gotelegrambotfx"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -11,14 +12,18 @@ import (
 
 type Start struct {
 	handler.BaseHandler
+
+	usersSvc *users.Service
 }
 
-func NewStart(bot *gotelegrambotfx.Bot, logger *zap.Logger) handler.Handler {
+func NewStart(bot *gotelegrambotfx.Bot, usersSvc *users.Service, logger *zap.Logger) handler.Handler {
 	return &Start{
 		BaseHandler: handler.BaseHandler{
 			Bot:    bot,
 			Logger: logger,
 		},
+
+		usersSvc: usersSvc,
 	}
 }
 
@@ -41,6 +46,10 @@ func (s *Start) handleStart(ctx *adaptor.Context, update *models.Update) {
 	if err != nil {
 		s.HandleError(ctx, update, err)
 		return
+	}
+
+	if actErr := s.usersSvc.SetActive(ctx, user.ID, true); actErr != nil {
+		s.Logger.Error("set user active", zap.Error(actErr))
 	}
 
 	displayName := user.Username

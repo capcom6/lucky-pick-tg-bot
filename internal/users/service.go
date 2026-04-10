@@ -74,3 +74,30 @@ func (s *Service) RegisterUser(ctx context.Context, user UserIn) (*User, error) 
 		IsActive:     model.IsActive,
 	}, nil
 }
+
+func (s *Service) GetByID(ctx context.Context, userID int64) (*User, error) {
+	model, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return &User{
+		UserIn: UserIn{
+			TelegramUserID: model.TelegramUserID,
+			Username:       model.Username,
+			FirstName:      model.FirstName,
+			LastName:       model.LastName,
+		},
+		ID:           model.ID,
+		RegisteredAt: model.RegisteredAt,
+		IsActive:     model.IsActive,
+	}, nil
+}
+
+func (s *Service) SetActive(ctx context.Context, userID int64, isActive bool) error {
+	if err := s.users.SetActive(ctx, userID, isActive); err != nil {
+		return fmt.Errorf("failed to set user activity: %w", err)
+	}
+
+	return nil
+}

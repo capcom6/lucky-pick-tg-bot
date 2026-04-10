@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -96,8 +97,12 @@ func (p *Participant) handleParticipate(ctx *adaptor.Context, update *models.Upd
 
 	logger = logger.With(zap.Int64("giveaway_id", giveawayID))
 
-	if participateErr := p.giveawaysSvc.Participate(ctx, giveawayID, user.ID); participateErr != nil {
-		alertText = alertSomethingWrong
+	if participateErr := p.giveawaysSvc.Participate(ctx, giveawayID, *user); participateErr != nil {
+		if errors.Is(participateErr, giveaways.ErrUserNotRegistered) {
+			alertText = "Для участия в анонимном розыгрыше сначала зарегистрируйтесь в боте: откройте личный чат с ботом и отправьте /start."
+		} else {
+			alertText = alertSomethingWrong
+		}
 		logger.Error("failed to participate in giveaway", zap.Error(participateErr))
 		return
 	}
