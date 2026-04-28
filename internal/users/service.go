@@ -40,7 +40,7 @@ func (s *Service) RegisterUser(ctx context.Context, user UserIn) (*User, error) 
 	)
 
 	// Create or update user in database
-	created, err := s.users.CreateOrUpdate(ctx, model)
+	model, created, err := s.users.CreateOrUpdate(ctx, *model)
 	if err != nil {
 		logger.Error("failed to create or update user",
 			zap.Error(err),
