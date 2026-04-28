@@ -20,8 +20,9 @@ func NewRepository(db *bun.DB) *Repository {
 }
 
 // CreateOrUpdate creates a new user or updates existing one.
-func (r *Repository) CreateOrUpdate(ctx context.Context, user *UserModel) (bool, error) {
-	created := false
+func (r *Repository) CreateOrUpdate(ctx context.Context, user UserModel) (*UserModel, bool, error) {
+	var created bool
+	var model *UserModel
 
 	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		existing := new(UserModel)
@@ -35,27 +36,33 @@ func (r *Repository) CreateOrUpdate(ctx context.Context, user *UserModel) (bool,
 
 		if existing.ID == 0 {
 			created = true
-			if err := r.insert(ctx, tx, user); err != nil {
+			if err := r.insert(ctx, tx, &user); err != nil {
 				return err
 			}
 		} else {
 			user.ID = existing.ID
-			if err := r.update(ctx, tx, user); err != nil {
+			if err := r.update(ctx, tx, &user); err != nil {
 				return err
 			}
+		}
+
+		var err error
+		model, err = r.get(ctx, tx, user.ID)
+		if err != nil {
+			return err
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return false, fmt.Errorf("failed to create or update user: %w", err)
+		return nil, false, fmt.Errorf("failed to create or update user: %w", err)
 	}
 
-	return created, nil
+	return model, created, nil
 }
 
-func (r *Repository) insert(ctx context.Context, tx bun.Tx, user *UserModel) error {
+func (r *Repository) insert(ctx context.Context, tx bun.IDB, user *UserModel) error {
 	_, err := tx.NewInsert().
 		Model(user).
 		Exec(ctx)
@@ -67,7 +74,7 @@ func (r *Repository) insert(ctx context.Context, tx bun.Tx, user *UserModel) err
 	return nil
 }
 
-func (r *Repository) update(ctx context.Context, tx bun.Tx, user *UserModel) error {
+func (r *Repository) update(ctx context.Context, tx bun.IDB, user *UserModel) error {
 	_, err := tx.NewUpdate().
 		Model(user).
 		OmitZero().
@@ -81,9 +88,9 @@ func (r *Repository) update(ctx context.Context, tx bun.Tx, user *UserModel) err
 	return nil
 }
 
-func (r *Repository) GetByID(ctx context.Context, userID int64) (*UserModel, error) {
+func (r *Repository) get(ctx context.Context, tx bun.IDB, userID int64) (*UserModel, error) {
 	user := new(UserModel)
-	if err := r.db.NewSelect().
+	if err := tx.NewSelect().
 		Model(user).
 		Where("id = ?", userID).
 		Scan(ctx); err != nil {
@@ -95,6 +102,10 @@ func (r *Repository) GetByID(ctx context.Context, userID int64) (*UserModel, err
 	}
 
 	return user, nil
+}
+
+func (r *Repository) GetByID(ctx context.Context, userID int64) (*UserModel, error) {
+	return r.get(ctx, r.db, userID)
 }
 
 func (r *Repository) SetActive(ctx context.Context, userID int64, isActive bool) error {
